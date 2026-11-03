@@ -349,7 +349,7 @@ export default function App() {
           }}
         />
       ) : (
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <main className="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-4 lg:px-6 py-4">
           {/* System & Boss Banner Strip */}
           <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-950 p-5 sm:p-6 mb-4 shadow-lg">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

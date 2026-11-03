@@ -2,50 +2,50 @@ import React from 'react';
 
 export const ChannelTableHeader: React.FC = () => {
   return (
-    <div className="sticky top-0 z-20 bg-slate-900/98 backdrop-blur-md border border-slate-800 rounded-lg px-3.5 py-2 mb-2.5 shadow-md w-full min-w-[1100px] text-xs font-semibold text-slate-300 select-none">
-      <div className="flex items-center gap-2.5 sm:gap-3">
+    <div className="sticky top-0 z-20 bg-slate-900/98 backdrop-blur-md border border-slate-800 rounded-lg px-2.5 sm:px-3.5 py-2 mb-2 shadow-md w-full min-w-[840px] text-xs font-semibold text-slate-300 select-none">
+      <div className="flex items-center gap-1.5 sm:gap-2.5">
         {/* 1. 频道号 */}
-        <div className="w-20 sm:w-24 shrink-0 text-slate-300 font-bold">
+        <div className="w-16 sm:w-20 shrink-0 text-slate-300 font-bold">
           频道号
         </div>
 
         {/* 2. 标签 */}
-        <div className="w-20 sm:w-24 shrink-0 text-slate-300">
+        <div className="w-16 sm:w-20 shrink-0 text-slate-300">
           频道标签
         </div>
 
         {/* 3. 距离进刷时间 */}
-        <div className="w-36 sm:w-44 shrink-0 text-cyan-300 font-bold">
+        <div className="w-28 sm:w-32 shrink-0 text-cyan-300 font-bold">
           距离进刷时间
         </div>
 
         {/* 4. 最近击杀时间 */}
-        <div className="w-28 sm:w-36 shrink-0 text-slate-300">
+        <div className="w-20 sm:w-24 shrink-0 text-slate-300">
           最近击杀
         </div>
 
         {/* 5. 进刷时间 */}
-        <div className="w-28 sm:w-36 shrink-0 text-rose-400">
+        <div className="w-20 sm:w-24 shrink-0 text-rose-400">
           进刷 (+60m)
         </div>
 
         {/* 6. 保底时间 */}
-        <div className="w-28 sm:w-36 shrink-0 text-sky-400">
+        <div className="w-20 sm:w-24 shrink-0 text-sky-400">
           保底 (+90m)
         </div>
 
         {/* 7. 当前蹲守玩家 */}
-        <div className="w-28 sm:w-32 shrink-0 text-purple-300">
+        <div className="w-20 sm:w-24 shrink-0 text-purple-300">
           当前蹲守玩家
         </div>
 
         {/* 8. 频道长期备注 */}
-        <div className="flex-1 min-w-[80px] text-amber-300">
+        <div className="flex-1 min-w-[50px] text-amber-300">
           长期备注
         </div>
 
         {/* 9. 操作区 */}
-        <div className="w-56 sm:w-64 shrink-0 text-right pr-2 text-slate-300 font-bold">
+        <div className="w-48 sm:w-56 shrink-0 text-right pr-1 text-slate-300 font-bold">
           操作
         </div>
       </div>

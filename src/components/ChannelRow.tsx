@@ -131,7 +131,7 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
 
   return (
     <div
-      className={`w-full mb-2.5 rounded-xl border transition-all duration-200 px-3.5 py-2.5 shadow-sm relative min-w-[1100px] ${
+      className={`w-full mb-2 rounded-xl border transition-all duration-200 px-2.5 sm:px-3.5 py-2 shadow-sm relative min-w-[840px] ${
         tagDropdownOpen ? 'z-50 ring-1 ring-cyan-500/50' : 'z-0'
       } ${
         isMyVisiting || hasVisitors
@@ -139,11 +139,11 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
           : `${statusStyles.border} ${statusStyles.bg} backdrop-blur-xs`
       }`}
     >
-      <div className="flex items-center gap-2.5 sm:gap-3">
-        {/* 1. 频道号 (Column w-20 sm:w-24) */}
-        <div className="w-20 sm:w-24 shrink-0 flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5 sm:gap-2.5">
+        {/* 1. 频道号 (Column w-16 sm:w-20) */}
+        <div className="w-16 sm:w-20 shrink-0 flex items-center gap-1">
           <span
-            className={`text-xl sm:text-2xl font-black font-mono tracking-tight tabular-nums ${
+            className={`text-lg sm:text-xl font-black font-mono tracking-tight tabular-nums ${
               isMyVisiting || hasVisitors
                 ? 'text-amber-300'
                 : 'text-white'
@@ -152,47 +152,47 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
             {channel.channel_no}
           </span>
           <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-slate-400 uppercase leading-none">
+            <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">
               频道
             </span>
             {isMyVisiting ? (
-              <span className="mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-black bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 shadow-md flex items-center gap-0.5 whitespace-nowrap animate-pulse">
+              <span className="mt-0.5 px-1 py-0.5 rounded text-[9px] font-black bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 shadow-md flex items-center gap-0.5 whitespace-nowrap animate-pulse">
                 <Sparkles className="w-2.5 h-2.5 shrink-0" />
-                <span>我的接单</span>
+                <span>我的</span>
               </span>
             ) : hasVisitors ? (
-              <span className="mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-black bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md flex items-center gap-0.5 whitespace-nowrap">
+              <span className="mt-0.5 px-1 py-0.5 rounded text-[9px] font-black bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md flex items-center gap-0.5 whitespace-nowrap">
                 <UserCheck className="w-2.5 h-2.5 shrink-0" />
-                <span>玩家接单</span>
+                <span>接单</span>
               </span>
             ) : null}
           </div>
         </div>
 
-        {/* 2. 标签 (Column w-20 sm:w-24) */}
-        <div className="w-20 sm:w-24 shrink-0 relative" ref={tagDropdownRef}>
+        {/* 2. 标签 (Column w-16 sm:w-20) */}
+        <div className="w-16 sm:w-20 shrink-0 relative" ref={tagDropdownRef}>
           {currentUser ? (
             <button
               type="button"
               onClick={() => setTagDropdownOpen(!tagDropdownOpen)}
-              className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md border transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1 px-1.5 py-1 text-xs font-semibold rounded-md border transition-all cursor-pointer ${
                 channel.channel_tag
                   ? getTagStyle(channel.channel_tag)
                   : 'bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-slate-700/80 border-dashed'
               }`}
               title="点击修改频道标签（护食 / 不抢怪 / 龙骑很强）"
             >
-              <TagIcon className="w-3 h-3" />
+              <TagIcon className="w-3 h-3 shrink-0" />
               <span className="truncate">{channel.channel_tag || '+ 标签'}</span>
               <ChevronDown className="w-2.5 h-2.5 opacity-60 ml-0.5 shrink-0" />
             </button>
           ) : channel.channel_tag ? (
             <span
-              className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md border ${getTagStyle(
+              className={`inline-flex items-center gap-1 px-1.5 py-1 text-xs font-semibold rounded-md border ${getTagStyle(
                 channel.channel_tag
               )}`}
             >
-              <TagIcon className="w-3 h-3" />
+              <TagIcon className="w-3 h-3 shrink-0" />
               <span>{channel.channel_tag}</span>
             </span>
           ) : (
@@ -246,12 +246,12 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
           )}
         </div>
 
-        {/* 3. 距离进刷时间 (Column w-36 sm:w-44) - 减小3个字号 */}
-        <div className="w-36 sm:w-44 shrink-0 flex items-center gap-2">
+        {/* 3. 距离进刷时间 (Column w-28 sm:w-32) */}
+        <div className="w-28 sm:w-32 shrink-0 flex items-center gap-1.5">
           <span className={`w-2 h-2 rounded-full shrink-0 ${statusStyles.statusDot}`} />
           <div className="flex flex-col">
             <span
-              className={`text-base sm:text-lg font-black font-mono tracking-tight tabular-nums ${statusStyles.countdownColor}`}
+              className={`text-sm sm:text-base font-black font-mono tracking-tight tabular-nums ${statusStyles.countdownColor}`}
             >
               {countdown.text}
             </span>
@@ -261,32 +261,32 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
           </div>
         </div>
 
-        {/* 4. 最近击杀时间 (Column w-28 sm:w-36: Only HH:mm:ss) - 减小3个字号 */}
-        <div className="w-28 sm:w-36 shrink-0">
-          <span className="text-base sm:text-lg font-black font-mono text-slate-100 tabular-nums">
+        {/* 4. 最近击杀时间 (Column w-20 sm:w-24: Only HH:mm:ss) */}
+        <div className="w-20 sm:w-24 shrink-0">
+          <span className="text-sm sm:text-base font-black font-mono text-slate-100 tabular-nums">
             {killTimeHms}
           </span>
         </div>
 
-        {/* 5. 进刷时间 (Column w-28 sm:w-36: Only HH:mm:ss) - 减小3个字号 */}
-        <div className="w-28 sm:w-36 shrink-0">
-          <span className="text-base sm:text-lg font-black font-mono text-rose-400 tabular-nums">
+        {/* 5. 进刷时间 (Column w-20 sm:w-24: Only HH:mm:ss) */}
+        <div className="w-20 sm:w-24 shrink-0">
+          <span className="text-sm sm:text-base font-black font-mono text-rose-400 tabular-nums">
             {entryTimeHms}
           </span>
         </div>
 
-        {/* 6. 保底时间 (Column w-28 sm:w-36: Only HH:mm:ss) - 减小3个字号 */}
-        <div className="w-28 sm:w-36 shrink-0">
-          <span className="text-base sm:text-lg font-black font-mono text-sky-400 tabular-nums">
+        {/* 6. 保底时间 (Column w-20 sm:w-24: Only HH:mm:ss) */}
+        <div className="w-20 sm:w-24 shrink-0">
+          <span className="text-sm sm:text-base font-black font-mono text-sky-400 tabular-nums">
             {guaranteedTimeHms}
           </span>
         </div>
 
-        {/* 7. 当前蹲守玩家 (Column w-28 sm:w-32) */}
-        <div className="w-28 sm:w-32 shrink-0 truncate">
+        {/* 7. 当前蹲守玩家 (Column w-20 sm:w-24) */}
+        <div className="w-20 sm:w-24 shrink-0 truncate">
           {channel.active_visitors.length > 0 ? (
             <span
-              className={`text-xs sm:text-sm font-black ${
+              className={`text-xs font-black ${
                 isMyVisiting || hasVisitors ? 'text-amber-200' : 'text-purple-300'
               }`}
               title={channel.active_visitors.map((v) => v.game_id).join('、')}
@@ -298,8 +298,8 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
           )}
         </div>
 
-        {/* 8. 频道长期备注 (Column flex-1 min-w-[100px]) */}
-        <div className="flex-1 min-w-[100px] truncate">
+        {/* 8. 频道长期备注 (Column flex-1 min-w-[50px]) */}
+        <div className="flex-1 min-w-[50px] truncate">
           {channel.channel_note ? (
             <span className="text-xs font-medium text-amber-200/90" title={channel.channel_note}>
               {channel.channel_note}
@@ -309,13 +309,13 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
           )}
         </div>
 
-        {/* 9. 操作区 (Column w-56 sm:w-64 text-right) - 永远清晰呈现在最右侧 */}
-        <div className="w-56 sm:w-64 shrink-0 flex items-center justify-end gap-1.5">
+        {/* 9. 操作区 (Column w-48 sm:w-56 text-right) - 永远清晰呈现在最右侧 */}
+        <div className="w-48 sm:w-56 shrink-0 flex items-center justify-end gap-1 sm:gap-1.5">
           {/* 记录按钮 */}
           <button
             onClick={() => onOpenHistory(channel.channel_no)}
             title="查看击杀历史与手动调整"
-            className="px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:text-white bg-slate-950/80 hover:bg-slate-800 border border-slate-700/80 rounded-lg transition-colors flex items-center gap-1 shadow-sm cursor-pointer shrink-0"
+            className="px-2 py-1 text-xs font-semibold text-slate-300 hover:text-white bg-slate-950/80 hover:bg-slate-800 border border-slate-700/80 rounded-lg transition-colors flex items-center gap-1 shadow-sm cursor-pointer shrink-0"
           >
             <History className="w-3.5 h-3.5" />
             <span>记录</span>
@@ -327,7 +327,7 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
               onClick={() => onReset?.(channel.channel_no)}
               disabled={isActionLoading}
               title="【管理员特权】重置此频道的所有时间信息为空"
-              className="px-2.5 py-1.5 text-xs font-bold text-amber-300 hover:text-amber-200 bg-amber-950/80 hover:bg-amber-900/90 border border-amber-600/80 rounded-lg transition-colors flex items-center gap-1 shadow-sm cursor-pointer shrink-0 active:scale-95"
+              className="px-2 py-1 text-xs font-bold text-amber-300 hover:text-amber-200 bg-amber-950/80 hover:bg-amber-900/90 border border-amber-600/80 rounded-lg transition-colors flex items-center gap-1 shadow-sm cursor-pointer shrink-0 active:scale-95"
             >
               <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
               <span>重置</span>
@@ -339,7 +339,7 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
             <button
               onClick={() => onLeave(channel.channel_no)}
               disabled={isActionLoading}
-              className="px-3 py-1.5 text-xs font-black text-amber-950 bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 border border-amber-300 rounded-lg transition-all flex items-center gap-1 shadow-md active:scale-95 cursor-pointer shrink-0"
+              className="px-2.5 py-1 text-xs font-black text-amber-950 bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 border border-amber-300 rounded-lg transition-all flex items-center gap-1 shadow-md active:scale-95 cursor-pointer shrink-0"
               title="您已接单此频道，点击退单"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -349,7 +349,7 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
             <button
               onClick={() => onVisit(channel.channel_no)}
               disabled={isActionLoading}
-              className="px-3 py-1.5 text-xs font-bold text-cyan-200 bg-cyan-950/90 hover:bg-cyan-900 border border-cyan-600 rounded-lg transition-colors flex items-center gap-1 active:scale-95 shadow-md cursor-pointer shrink-0"
+              className="px-2.5 py-1 text-xs font-bold text-cyan-200 bg-cyan-950/90 hover:bg-cyan-900 border border-cyan-600 rounded-lg transition-colors flex items-center gap-1 active:scale-95 shadow-md cursor-pointer shrink-0"
               title="接单此频道以获得击杀权限并自动登记游戏ID"
             >
               <LogIn className="w-3.5 h-3.5 text-cyan-400" />
@@ -361,7 +361,7 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
           <button
             onClick={() => onKill(channel.channel_no)}
             disabled={!isMyVisiting || isActionLoading}
-            className={`px-3.5 py-1.5 text-xs font-black rounded-lg transition-all flex items-center gap-1 shadow-md active:scale-95 shrink-0 ${
+            className={`px-2.5 py-1 text-xs font-black rounded-lg transition-all flex items-center gap-1 shadow-md active:scale-95 shrink-0 ${
               isMyVisiting
                 ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white cursor-pointer shadow-red-950/50'
                 : 'bg-slate-900 border border-slate-800 text-slate-600 cursor-not-allowed opacity-40'
