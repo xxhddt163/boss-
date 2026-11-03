@@ -7,6 +7,7 @@ import { Header } from './components/Header.tsx';
 import { StatsBar } from './components/StatsBar.tsx';
 import { FilterBar, StatusFilter, SortOption } from './components/FilterBar.tsx';
 import { ChannelRow } from './components/ChannelRow.tsx';
+import { ChannelTableHeader } from './components/ChannelTableHeader.tsx';
 import { ChannelDetailModal } from './components/ChannelDetailModal.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
 import { AdminModal } from './components/AdminModal.tsx';
@@ -234,16 +235,24 @@ export default function App() {
       });
     }
 
-    // Sorting (Requirement 3 & 4: Current user's accepted channel is pinned to the absolute top row)
+    // Sorting:
+    // 1. My accepted channel ALWAYS comes #1 at the absolute top row
+    // 2. All other accepted channels (ordered by other players) are ALSO pinned right below
+    // 3. Un-ordered channels follow according to user's selected sortOption
     result.sort((a, b) => {
-      const myVisitedA = currentUser
+      const aHasMe = currentUser
         ? a.active_visitors.some((v) => v.user_id === currentUser.id)
         : false;
-      const myVisitedB = currentUser
+      const bHasMe = currentUser
         ? b.active_visitors.some((v) => v.user_id === currentUser.id)
         : false;
-      if (myVisitedA && !myVisitedB) return -1;
-      if (!myVisitedA && myVisitedB) return 1;
+      if (aHasMe && !bHasMe) return -1;
+      if (!aHasMe && bHasMe) return 1;
+
+      const aHasOther = a.active_visitors.length > 0;
+      const bHasOther = b.active_visitors.length > 0;
+      if (aHasOther && !bHasOther) return -1;
+      if (!aHasOther && bHasOther) return 1;
 
       if (sortOption === 'channel_asc') {
         return a.channel_no - b.channel_no;
@@ -263,7 +272,7 @@ export default function App() {
         const timeB = b.last_kill ? new Date(b.last_kill.killed_at).getTime() : 0;
         return timeB - timeA;
       }
-      return 0;
+      return a.channel_no - b.channel_no;
     });
 
     return result;
@@ -374,14 +383,14 @@ export default function App() {
             onSortChange={setSortOption}
           />
 
-          {/* 3. Channel Rows List (Strict Rule: One channel per row across all screens!) */}
-          <div className="space-y-3 mt-4">
-            <div className="flex items-center justify-between text-xs text-slate-400 px-1 pb-1">
+          {/* 3. Channel Rows List with Frozen Sticky Table Header */}
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-xs text-slate-400 px-1 pb-2">
               <span>
                 显示频道：<strong className="text-white font-mono">{filteredChannels.length}</strong> / 60
               </span>
               <span className="text-[11px] text-slate-400">
-                提示：先点击“接单”即可接管并点击“击杀”；任何登录玩家均可切换频道标签
+                提示：所有被接单的频道自动高亮置顶（当前登录账号所接单频道优先显示在第1行）
               </span>
             </div>
 
@@ -407,20 +416,28 @@ export default function App() {
                 </button>
               </div>
             ) : (
-              filteredChannels.map((channel) => (
-                <ChannelRow
-                  key={channel.channel_no}
-                  channel={channel}
-                  currentUser={currentUser}
-                  serverTime={serverTime}
-                  onVisit={handleVisit}
-                  onLeave={handleLeave}
-                  onKill={handleRequestKill}
-                  onOpenHistory={(ch) => setHistoryChannelNo(ch)}
-                  onUpdateTag={handleUpdateTag}
-                  isActionLoading={actionLoading}
-                />
-              ))
+              <div className="overflow-x-auto pb-4">
+                {/* Frozen / Sticky Table Header */}
+                <ChannelTableHeader />
+
+                {/* Streamlined Channel Rows */}
+                <div className="space-y-2.5 mt-2">
+                  {filteredChannels.map((channel) => (
+                    <ChannelRow
+                      key={channel.channel_no}
+                      channel={channel}
+                      currentUser={currentUser}
+                      serverTime={serverTime}
+                      onVisit={handleVisit}
+                      onLeave={handleLeave}
+                      onKill={handleRequestKill}
+                      onOpenHistory={(ch) => setHistoryChannelNo(ch)}
+                      onUpdateTag={handleUpdateTag}
+                      isActionLoading={actionLoading}
+                    />
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </main>
