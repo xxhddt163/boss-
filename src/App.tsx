@@ -10,8 +10,10 @@ import { ChannelRow } from './components/ChannelRow.tsx';
 import { ChannelDetailModal } from './components/ChannelDetailModal.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
 import { AdminModal } from './components/AdminModal.tsx';
+import { LoginPortal } from './components/LoginPortal.tsx';
+import { KillConfirmModal } from './components/KillConfirmModal.tsx';
 import { sound } from './utils/sound.ts';
-import { AlertCircle, CheckCircle, Info, Sparkles } from 'lucide-react';
+import { AlertCircle, CheckCircle, Info } from 'lucide-react';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -35,6 +37,7 @@ export default function App() {
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'change_password'>('login');
   const [adminModalOpen, setAdminModalOpen] = useState<boolean>(false);
   const [historyChannelNo, setHistoryChannelNo] = useState<number | null>(null);
+  const [confirmKillChannelNo, setConfirmKillChannelNo] = useState<number | null>(null);
 
   // Notification banners (e.g. concurrent kill click alert)
   const [bannerNotice, setBannerNotice] = useState<{ type: 'info' | 'success' | 'warn'; message: string } | null>(null);
@@ -117,20 +120,9 @@ export default function App() {
     };
   }, []);
 
-  // Sync WS identity if user changes
-  useEffect(() => {
-    if (currentUser) {
-      // Auto re-identify
-    }
-  }, [currentUser]);
-
   // Handlers for channel operations
   const handleVisit = async (channelNo: number) => {
-    if (!currentUser) {
-      setAuthModalMode('login');
-      setAuthModalOpen(true);
-      return;
-    }
+    if (!currentUser) return;
     try {
       setActionLoading(true);
       sound.playClick();
@@ -138,9 +130,8 @@ export default function App() {
       if (res.leftOtherChannel) {
         showNotice('info', `已接单 ${channelNo} 频道（自动退出先前接单的 ${res.leftOtherChannel} 频道）`);
       } else {
-        showNotice('success', `已成功接单 ${channelNo} 频道，已获得击杀操作权限！`);
+        showNotice('success', `已成功接单 ${channelNo} 频道，已自动登记您的角色 ID！`);
       }
-      // Re-fetch or WS will broadcast
     } catch (err: any) {
       showNotice('warn', err.message || '接单失败');
     } finally {
@@ -153,7 +144,7 @@ export default function App() {
       setActionLoading(true);
       sound.playClick();
       await api.leaveChannel(channelNo);
-      showNotice('info', `已退出 ${channelNo} 频道接单`);
+      showNotice('info', `已退单 ${channelNo} 频道并清除登记`);
     } catch (err: any) {
       showNotice('warn', err.message || '退单失败');
     } finally {
@@ -161,22 +152,41 @@ export default function App() {
     }
   };
 
-  const handleKill = async (channelNo: number) => {
-    if (!currentUser) {
-      setAuthModalMode('login');
-      setAuthModalOpen(true);
-      return;
-    }
+  // Issue 5: Prompt Kill confirmation modal
+  const handleRequestKill = (channelNo: number) => {
+    if (!currentUser) return;
+    setConfirmKillChannelNo(channelNo);
+  };
+
+  // Issue 2, 4 & 5: Confirm and submit Kill
+  const handleConfirmKill = async () => {
+    if (!currentUser || confirmKillChannelNo === null) return;
     try {
       setActionLoading(true);
       sound.playClick();
-      const res = await api.recordKill(channelNo);
+      const res = await api.recordKill(confirmKillChannelNo);
       sound.playEntryReached();
-      showNotice('success', res.message);
+      showNotice('success', `${res.message}，已自动完成并清除本次接单！`);
+      setConfirmKillChannelNo(null);
     } catch (err: any) {
       showNotice('warn', err.message || '击杀提交失败');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // Issue 3: Channel tag update by logged-in users
+  const handleUpdateTag = async (channelNo: number, tag: string) => {
+    if (!currentUser) return;
+    try {
+      sound.playClick();
+      await api.updateChannelTag(channelNo, tag);
+      showNotice(
+        'success',
+        tag ? `已为 ${channelNo} 频道设置标签【${tag}】` : `已清除 ${channelNo} 频道的标签`
+      );
+    } catch (err: any) {
+      showNotice('warn', err.message || '修改标签失败');
     }
   };
 
@@ -211,11 +221,13 @@ export default function App() {
       result = result.filter((c) => {
         const matchesNo = String(c.channel_no) === q || `${c.channel_no}频道`.includes(q);
         const matchesNote = c.channel_note && c.channel_note.toLowerCase().includes(q);
+        const matchesTag = c.channel_tag && c.channel_tag.toLowerCase().includes(q);
         const matchesVisitor = c.active_visitors.some((v) =>
           v.game_id.toLowerCase().includes(q) || v.username.toLowerCase().includes(q)
         );
-        const matchesLastKill = c.last_kill?.game_id.toLowerCase().includes(q) || c.last_kill?.kill_note?.toLowerCase().includes(q);
-        return matchesNo || matchesNote || matchesVisitor || matchesLastKill;
+        const matchesLastKill =
+          c.last_kill?.game_id.toLowerCase().includes(q) || c.last_kill?.kill_note?.toLowerCase().includes(q);
+        return matchesNo || matchesNote || matchesTag || matchesVisitor || matchesLastKill;
       });
     }
 
@@ -225,13 +237,11 @@ export default function App() {
         return a.channel_no - b.channel_no;
       }
       if (sortOption === 'entry_soon') {
-        // waiting_entry channels with lowest remaining seconds come first
         const remA = a.remaining_seconds_entry ?? 9999999;
         const remB = b.remaining_seconds_entry ?? 9999999;
         return remA - remB;
       }
       if (sortOption === 'guaranteed_soon') {
-        // in_spawn_window with lowest remaining seconds until guaranteed
         const remA = a.remaining_seconds_guaranteed ?? 9999999;
         const remB = b.remaining_seconds_guaranteed ?? 9999999;
         return remA - remB;
@@ -254,10 +264,6 @@ export default function App() {
         currentUser={currentUser}
         onlineCount={onlineCount}
         wsConnected={wsConnected}
-        onOpenAuth={() => {
-          setAuthModalMode('login');
-          setAuthModalOpen(true);
-        }}
         onOpenAdmin={() => setAdminModalOpen(true)}
         onChangePassword={() => {
           setAuthModalMode('change_password');
@@ -288,123 +294,125 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Content Viewport */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* System & Boss Banner Strip */}
-        <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-950 p-5 sm:p-6 mb-4 shadow-lg">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded text-[11px] font-bold bg-cyan-950 border border-cyan-800/80 text-cyan-300">
-                  多人实时共享
-                </span>
-                <span className="text-xs text-slate-400">
-                  全服 1～60 频道实时联动监控
-                </span>
+      {/* Main Content Viewport: Issue 1 - if !currentUser, show dedicated LoginPortal directly */}
+      {!currentUser ? (
+        <LoginPortal
+          onLoginSuccess={(user) => {
+            setCurrentUser(user);
+            showNotice('success', `登录成功，欢迎回来：${user.game_id}！已解锁频道监控。`);
+            if (user.must_change_password) {
+              setAuthModalMode('change_password');
+              setAuthModalOpen(true);
+            }
+          }}
+        />
+      ) : (
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* System & Boss Banner Strip */}
+          <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-950 p-5 sm:p-6 mb-4 shadow-lg">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded text-[11px] font-bold bg-cyan-950 border border-cyan-800/80 text-cyan-300">
+                    多人实时共享
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    全服 1～60 频道实时联动监控 · 登录角色：<strong className="text-purple-300 font-semibold">{currentUser.game_id}</strong>
+                  </span>
+                </div>
+                <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+                  {bossConfig?.boss_name || '驮狼雪人'} Boss 刷新时间管理系统
+                </h1>
+                <p className="text-xs text-slate-400 max-w-2xl">
+                  规则：进刷时间 = 击杀 + {bossConfig?.entry_interval || 60} 分钟，保底时间 = 击杀 + {bossConfig?.guaranteed_interval || 90} 分钟。接单自动登记角色，击杀确认后自动释放接单并全服广播。
+                </p>
               </div>
-              <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-                {bossConfig?.boss_name || '驮狼雪人'} Boss 刷新时间管理系统
-              </h1>
-              <p className="text-xs text-slate-400 max-w-2xl">
-                规则：进刷时间 = 击杀 + {bossConfig?.entry_interval || 60} 分钟，保底时间 = 击杀 + {bossConfig?.guaranteed_interval || 90} 分钟。多玩家访问频道协同蹲守，一键记录击杀，自动并发防重。
-              </p>
+
+              {currentUser.role === 'admin' && (
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    onClick={() => setAdminModalOpen(true)}
+                    className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-cyan-950/80 hover:bg-cyan-900/80 border border-cyan-800 text-cyan-300 transition-colors flex items-center gap-1.5 active:scale-95 shadow-sm cursor-pointer"
+                  >
+                    <span>管理员控制中心</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 1. Statistics Bar */}
+          <StatsBar
+            channels={channels}
+            onlineCount={onlineCount}
+            wsConnected={wsConnected}
+          />
+
+          {/* 2. Search, Filter and Sort Bar */}
+          <FilterBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            hasVisitorFilter={hasVisitorFilter}
+            onHasVisitorChange={setHasVisitorFilter}
+            hasNoteFilter={hasNoteFilter}
+            onHasNoteChange={setHasNoteFilter}
+            sortOption={sortOption}
+            onSortChange={setSortOption}
+          />
+
+          {/* 3. Channel Rows List (Strict Rule: One channel per row across all screens!) */}
+          <div className="space-y-3 mt-4">
+            <div className="flex items-center justify-between text-xs text-slate-400 px-1 pb-1">
+              <span>
+                显示频道：<strong className="text-white font-mono">{filteredChannels.length}</strong> / 60
+              </span>
+              <span className="text-[11px] text-slate-400">
+                提示：先点击“接单”即可接管并点击“击杀”；任何登录玩家均可切换频道标签
+              </span>
             </div>
 
-            {currentUser?.role === 'admin' ? (
-              <div className="flex items-center gap-3 shrink-0">
-                <button
-                  onClick={() => setAdminModalOpen(true)}
-                  className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-cyan-950/80 hover:bg-cyan-900/80 border border-cyan-800 text-cyan-300 transition-colors flex items-center gap-1.5 active:scale-95 shadow-sm"
-                >
-                  <span>管理员控制中心</span>
-                </button>
+            {loading ? (
+              <div className="py-20 text-center text-slate-500 space-y-3">
+                <div className="inline-block w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-xs">正在连接并加载 60 频道数据...</p>
               </div>
-            ) : !currentUser ? (
-              <div className="flex items-center gap-3 shrink-0">
+            ) : filteredChannels.length === 0 ? (
+              <div className="py-16 text-center text-slate-500 rounded-xl bg-slate-900/40 border border-slate-800">
+                <p className="text-sm font-medium text-slate-400">没有找到匹配的频道</p>
+                <p className="text-xs text-slate-600 mt-1">请尝试清除搜索关键字或重置筛选状态</p>
                 <button
                   onClick={() => {
-                    setAuthModalMode('login');
-                    setAuthModalOpen(true);
+                    setSearchQuery('');
+                    setStatusFilter('all');
+                    setHasVisitorFilter(false);
+                    setHasNoteFilter(false);
                   }}
-                  className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition-colors flex items-center gap-1.5 active:scale-95"
+                  className="mt-3 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer"
                 >
-                  <span>登录以访问频道并击杀</span>
+                  重置筛选条件
                 </button>
               </div>
-            ) : null}
+            ) : (
+              filteredChannels.map((channel) => (
+                <ChannelRow
+                  key={channel.channel_no}
+                  channel={channel}
+                  currentUser={currentUser}
+                  serverTime={serverTime}
+                  onVisit={handleVisit}
+                  onLeave={handleLeave}
+                  onKill={handleRequestKill}
+                  onOpenHistory={(ch) => setHistoryChannelNo(ch)}
+                  onUpdateTag={handleUpdateTag}
+                  isActionLoading={actionLoading}
+                />
+              ))
+            )}
           </div>
-        </div>
-
-        {/* 1. Statistics Bar */}
-        <StatsBar
-          channels={channels}
-          onlineCount={onlineCount}
-          wsConnected={wsConnected}
-        />
-
-        {/* 2. Search, Filter and Sort Bar */}
-        <FilterBar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          hasVisitorFilter={hasVisitorFilter}
-          onHasVisitorChange={setHasVisitorFilter}
-          hasNoteFilter={hasNoteFilter}
-          onHasNoteChange={setHasNoteFilter}
-          sortOption={sortOption}
-          onSortChange={setSortOption}
-        />
-
-        {/* 3. Channel Rows List (Strict Rule: One channel per row across all screens!) */}
-        <div className="space-y-3 mt-4">
-          <div className="flex items-center justify-between text-xs text-slate-400 px-1 pb-1">
-            <span>
-              显示频道：<strong className="text-white font-mono">{filteredChannels.length}</strong> / 60
-            </span>
-            <span className="text-[11px] text-slate-400">
-              提示：点击“接单”后即可点击“击杀”提交记录，点击“记录”可查看详情与补录
-            </span>
-          </div>
-
-          {loading ? (
-            <div className="py-20 text-center text-slate-500 space-y-3">
-              <div className="inline-block w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-xs">正在连接并加载 60 频道数据...</p>
-            </div>
-          ) : filteredChannels.length === 0 ? (
-            <div className="py-16 text-center text-slate-500 rounded-xl bg-slate-900/40 border border-slate-800">
-              <p className="text-sm font-medium text-slate-400">没有找到匹配的频道</p>
-              <p className="text-xs text-slate-600 mt-1">请尝试清除搜索关键字或重置筛选状态</p>
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setStatusFilter('all');
-                  setHasVisitorFilter(false);
-                  setHasNoteFilter(false);
-                }}
-                className="mt-3 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg"
-              >
-                重置筛选条件
-              </button>
-            </div>
-          ) : (
-            filteredChannels.map((channel) => (
-              <ChannelRow
-                key={channel.channel_no}
-                channel={channel}
-                currentUser={currentUser}
-                serverTime={serverTime}
-                onVisit={handleVisit}
-                onLeave={handleLeave}
-                onKill={handleKill}
-                onOpenHistory={(ch) => setHistoryChannelNo(ch)}
-                isActionLoading={actionLoading}
-              />
-            ))
-          )}
-        </div>
-      </main>
+        </main>
+      )}
 
       {/* Footer */}
       <footer className="mt-auto border-t border-slate-800/80 bg-slate-950 py-4 px-6 text-center text-xs text-slate-400">
@@ -413,6 +421,17 @@ export default function App() {
           <span>服务器时间同步基准：Asia/Shanghai (北京时间) · 多人 WebSocket 实时互联</span>
         </div>
       </footer>
+
+      {/* Issue 5: Kill Confirmation Modal */}
+      {confirmKillChannelNo !== null && (
+        <KillConfirmModal
+          channelNo={confirmKillChannelNo}
+          gameId={currentUser?.game_id || ''}
+          onConfirm={handleConfirmKill}
+          onCancel={() => setConfirmKillChannelNo(null)}
+          loading={actionLoading}
+        />
+      )}
 
       {/* Channel Kill History / Backfill / Modify Modal */}
       {historyChannelNo !== null && (
@@ -424,14 +443,14 @@ export default function App() {
         />
       )}
 
-      {/* Auth Modal (Login / Register / Change Password) */}
+      {/* Auth Modal (Password Change) */}
       {authModalOpen && (
         <AuthModal
           initialMode={authModalMode}
           onClose={() => setAuthModalOpen(false)}
           onSuccess={(user) => {
             setCurrentUser(user);
-            showNotice('success', `欢迎回来，${user.game_id}！已同步游戏身份。`);
+            showNotice('success', `密码已更新！`);
           }}
         />
       )}

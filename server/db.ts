@@ -63,6 +63,7 @@ function getInitialState(): DBState {
       channel_no: i,
       boss_id: boss.id,
       channel_note: '',
+      channel_tag: '',
       version: 1,
       updated_at: now,
       updated_by: 'system',
@@ -204,8 +205,17 @@ export function getLatestValidKill(channelNo: number): KillRecord | null {
   );
   if (validKills.length === 0) return null;
 
-  // Max killed_at time
-  validKills.sort((a, b) => new Date(b.killed_at).getTime() - new Date(a.killed_at).getTime());
+  // The active kill round for a channel is the latest recorded round (by created_at).
+  // When a user modifies that round's killed_at time, it remains the active kill and updates status immediately!
+  // If a new live kill is submitted, its newer created_at guarantees it supersedes previous rounds.
+  validKills.sort((a, b) => {
+    const createdA = new Date(a.created_at).getTime() || 0;
+    const createdB = new Date(b.created_at).getTime() || 0;
+    if (createdB !== createdA) {
+      return createdB - createdA;
+    }
+    return new Date(b.killed_at).getTime() - new Date(a.killed_at).getTime();
+  });
   return validKills[0];
 }
 
@@ -231,6 +241,7 @@ export function computeChannelStatus(
     return {
       channel_no: channel.channel_no,
       channel_note: channel.channel_note || '',
+      channel_tag: channel.channel_tag || '',
       status: 'unrecorded',
       status_label: '未记录',
       last_kill: null,

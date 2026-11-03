@@ -31,6 +31,7 @@ export interface Channel {
   channel_no: number; // 1 ~ 60
   boss_id: string;
   channel_note: string; // Long-term note
+  channel_tag?: string; // Tag: 护食 / 不抢怪 / 龙骑很强
   version: number;
   updated_at: string;
   updated_by: string;
@@ -95,6 +96,7 @@ export type ChannelStatus = 'unrecorded' | 'waiting_entry' | 'in_spawn_window' |
 export interface ChannelComputedView {
   channel_no: number;
   channel_note: string;
+  channel_tag?: string;
   status: ChannelStatus;
   status_label: string;
   last_kill: KillRecord | null;

@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import emblemImg from '../assets/images/snowman_boss_emblem_1793630816599.jpg';
 import { User } from '../types.ts';
 import { sound, requestNotificationPermission } from '../utils/sound.ts';
 import { getCurrentServerTime, formatBeijing } from '../utils/time.ts';
-import { Volume2, VolumeX, Bell, Shield, User as UserIcon, LogOut, KeyRound } from 'lucide-react';
+import { Volume2, VolumeX, Bell, Shield, LogOut, KeyRound } from 'lucide-react';
 
 interface HeaderProps {
   currentUser: User | null;
   onlineCount: number;
   wsConnected: boolean;
-  onOpenAuth: () => void;
   onOpenAdmin: () => void;
   onChangePassword: () => void;
   onLogout: () => void;
@@ -20,7 +20,6 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser,
   onlineCount,
   wsConnected,
-  onOpenAuth,
   onOpenAdmin,
   onChangePassword,
   onLogout,
@@ -55,13 +54,16 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800/80 px-4 lg:px-8 py-3">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-8">
-        {/* Zone 1: Single text element wordmark */}
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-6">
+        {/* Zone 1: Logo & Title */}
         <div className="flex items-center gap-3 shrink-0">
           <img
-            src="/src/assets/images/snowman_boss_emblem_1793630816599.jpg"
+            src={emblemImg}
             alt="Snowman Emblem"
-            className="w-8 h-8 rounded border border-cyan-500/30 object-cover shadow-sm"
+            className="w-8 h-8 rounded border border-cyan-500/30 object-cover shadow-sm bg-slate-900"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = '/emblem.jpg';
+            }}
           />
           <a
             href="/"
@@ -78,43 +80,45 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </div>
 
-        {/* Zone 2: Clean single-line text navigation links */}
-        <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-400">
-          <button
-            onClick={() => onSelectTab('all')}
-            className={`transition-colors whitespace-nowrap shrink-0 ${
-              activeTab === 'all' ? 'text-cyan-400 font-semibold' : 'hover:text-slate-200'
-            }`}
-          >
-            全服频道
-          </button>
-          <button
-            onClick={() => onSelectTab('waiting_entry')}
-            className={`transition-colors whitespace-nowrap shrink-0 ${
-              activeTab === 'waiting_entry' ? 'text-sky-400 font-semibold' : 'hover:text-slate-200'
-            }`}
-          >
-            等待进刷
-          </button>
-          <button
-            onClick={() => onSelectTab('in_spawn_window')}
-            className={`transition-colors whitespace-nowrap shrink-0 ${
-              activeTab === 'in_spawn_window' ? 'text-emerald-400 font-semibold' : 'hover:text-slate-200'
-            }`}
-          >
-            正在刷新
-          </button>
-          <button
-            onClick={() => onSelectTab('guaranteed_reached')}
-            className={`transition-colors whitespace-nowrap shrink-0 ${
-              activeTab === 'guaranteed_reached' ? 'text-rose-400 font-semibold' : 'hover:text-slate-200'
-            }`}
-          >
-            已到保底
-          </button>
-        </nav>
+        {/* Zone 2: Navigation (Visible when logged in) */}
+        {currentUser && (
+          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-400">
+            <button
+              onClick={() => onSelectTab('all')}
+              className={`transition-colors whitespace-nowrap shrink-0 ${
+                activeTab === 'all' ? 'text-cyan-400 font-semibold' : 'hover:text-slate-200'
+              }`}
+            >
+              全服频道
+            </button>
+            <button
+              onClick={() => onSelectTab('waiting_entry')}
+              className={`transition-colors whitespace-nowrap shrink-0 ${
+                activeTab === 'waiting_entry' ? 'text-sky-400 font-semibold' : 'hover:text-slate-200'
+              }`}
+            >
+              等待进刷
+            </button>
+            <button
+              onClick={() => onSelectTab('in_spawn_window')}
+              className={`transition-colors whitespace-nowrap shrink-0 ${
+                activeTab === 'in_spawn_window' ? 'text-emerald-400 font-semibold' : 'hover:text-slate-200'
+              }`}
+            >
+              正在刷新
+            </button>
+            <button
+              onClick={() => onSelectTab('guaranteed_reached')}
+              className={`transition-colors whitespace-nowrap shrink-0 ${
+                activeTab === 'guaranteed_reached' ? 'text-rose-400 font-semibold' : 'hover:text-slate-200'
+              }`}
+            >
+              已到保底
+            </button>
+          </nav>
+        )}
 
-        {/* Zone 3: Primary action & User session */}
+        {/* Zone 3: Actions & User session */}
         <div className="flex items-center gap-3 shrink-0">
           {/* Server time indicator */}
           <div className="hidden lg:flex items-center gap-2 text-xs font-mono text-slate-400 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-md tabular-nums">
@@ -154,8 +158,8 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* User state / Auth button */}
-          {currentUser ? (
+          {/* User state (No login/register button when logged in, per requirement 1) */}
+          {currentUser && (
             <div className="relative">
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
@@ -193,14 +197,6 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               )}
             </div>
-          ) : (
-            <button
-              onClick={onOpenAuth}
-              className="px-4 py-2 text-xs font-bold text-slate-950 bg-gradient-to-r from-cyan-400 to-sky-400 rounded-lg hover:from-cyan-300 hover:to-sky-300 transition-colors whitespace-nowrap flex items-center gap-1.5 shadow-md shadow-cyan-950/40"
-            >
-              <UserIcon className="w-3.5 h-3.5" />
-              <span>登录 / 注册</span>
-            </button>
           )}
         </div>
       </div>

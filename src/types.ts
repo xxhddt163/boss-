@@ -47,6 +47,7 @@ export interface KillRecord {
 export interface ChannelComputedView {
   channel_no: number;
   channel_note: string;
+  channel_tag?: string;
   status: 'unrecorded' | 'waiting_entry' | 'in_spawn_window' | 'guaranteed_reached';
   status_label: string;
   last_kill: KillRecord | null;

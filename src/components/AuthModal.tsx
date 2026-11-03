@@ -189,7 +189,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={loginUsername}
                     onChange={(e) => setLoginUsername(e.target.value)}
-                    placeholder="输入用户名 (默认管理员为 admin)"
+                    placeholder="输入用户名"
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                   />
                 </div>
@@ -204,7 +204,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder="输入密码 (默认管理员初始密码 admin)"
+                    placeholder="输入密码"
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
                   />
                 </div>

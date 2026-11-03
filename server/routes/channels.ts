@@ -250,6 +250,14 @@ channelsRouter.post('/:channelNo/kill', (req: Request, res: Response) => {
     });
   }
 
+  // Issue 4: 接单自动登记游戏ID，但是点击击杀后，不需要退单，自动删除已经登记的名字ID
+  for (const visit of db.channel_visits) {
+    if (visit.channel_no === channelNo && visit.user_id === user.id && visit.status === 'active') {
+      visit.status = 'left';
+      visit.left_at = serverNowIso;
+    }
+  }
+
   // Update channel version
   const channel = db.channels.find((c) => c.channel_no === channelNo);
   if (channel) {
@@ -562,3 +570,47 @@ channelsRouter.put('/:channelNo/note', (req: Request, res: Response) => {
 
   return res.json({ success: true, channel });
 });
+
+// 11. Update Channel Tag (Issue 3 - Any logged-in player can modify tag: '护食' | '不抢怪' | '龙骑很强' | '')
+channelsRouter.put('/:channelNo/tag', (req: Request, res: Response) => {
+  const channelNo = parseInt(req.params.channelNo, 10);
+  const user = getAuthUser(req);
+  if (!user) {
+    return res.status(401).json({ error: '必须登录后才能修改频道标签' });
+  }
+
+  const { channel_tag } = req.body;
+  const allowed = ['护食', '不抢怪', '龙骑很强', ''];
+  const tagVal = (channel_tag || '').trim();
+  if (tagVal && !allowed.includes(tagVal)) {
+    return res.status(400).json({ error: '标签仅支持：护食、不抢怪、龙骑很强' });
+  }
+
+  const db = loadDB();
+  const channel = db.channels.find((c) => c.channel_no === channelNo);
+  if (!channel) {
+    return res.status(404).json({ error: '频道不存在' });
+  }
+
+  const oldTag = channel.channel_tag || '';
+  channel.channel_tag = tagVal;
+  channel.version += 1;
+  channel.updated_at = new Date().toISOString();
+  channel.updated_by = user.username;
+
+  scheduleSave();
+
+  logOperation({
+    user_id: user.id,
+    username: user.username,
+    channel_no: channelNo,
+    action: 'CHANNEL_TAG_UPDATE',
+    old_data: { tag: oldTag },
+    new_data: { tag: tagVal },
+  });
+
+  broadcastChannelsUpdate();
+
+  return res.json({ success: true, channel_tag: tagVal });
+});
+

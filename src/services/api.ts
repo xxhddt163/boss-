@@ -128,6 +128,12 @@ export const api = {
       body: JSON.stringify({ channel_note }),
     }),
 
+  updateChannelTag: (channelNo: number, channel_tag: string) =>
+    request<{ success: boolean; channel_tag: string }>(`/api/channels/${channelNo}/tag`, {
+      method: 'PUT',
+      body: JSON.stringify({ channel_tag }),
+    }),
+
   // Admin
   getUsers: () => request<{ users: User[] }>('/api/admin/users'),
   setUserStatus: (userId: string, status: 'active' | 'disabled' | 'pending') =>
