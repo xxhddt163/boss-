@@ -132,16 +132,24 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
         tagDropdownOpen ? 'z-50 ring-1 ring-cyan-500/50' : 'z-0'
       } ${
         isMyVisiting
-          ? 'bg-gradient-to-r from-purple-950/95 via-indigo-950/90 to-purple-900/90 border-2 border-purple-400 shadow-[0_0_24px_rgba(168,85,247,0.4)] ring-2 ring-purple-500/50'
+          ? 'bg-gradient-to-r from-amber-950/95 via-yellow-950/90 to-amber-900/85 border-2 border-amber-400 shadow-[0_0_28px_rgba(245,158,11,0.45)] ring-2 ring-amber-400/60'
           : hasVisitors
-          ? 'bg-gradient-to-r from-indigo-950/90 via-slate-900 to-indigo-950/85 border-2 border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.35)] ring-1 ring-indigo-500/60'
+          ? 'bg-gradient-to-r from-purple-950/95 via-fuchsia-950/90 to-purple-900/85 border-2 border-purple-500 shadow-[0_0_24px_rgba(168,85,247,0.4)] ring-1 ring-purple-400/60'
           : `${statusStyles.border} ${statusStyles.bg} backdrop-blur-xs`
       }`}
     >
       <div className="flex items-center gap-2.5 sm:gap-3">
         {/* 1. 频道号 (Column w-20 sm:w-24) */}
         <div className="w-20 sm:w-24 shrink-0 flex items-center gap-1.5">
-          <span className="text-xl sm:text-2xl font-black font-mono tracking-tight text-white tabular-nums">
+          <span
+            className={`text-xl sm:text-2xl font-black font-mono tracking-tight tabular-nums ${
+              isMyVisiting
+                ? 'text-amber-300'
+                : hasVisitors
+                ? 'text-purple-300'
+                : 'text-white'
+            }`}
+          >
             {channel.channel_no}
           </span>
           <div className="flex flex-col">
@@ -149,12 +157,12 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
               频道
             </span>
             {isMyVisiting ? (
-              <span className="mt-0.5 px-1 py-0.2 rounded text-[9px] font-black bg-purple-500 text-white shadow-sm flex items-center gap-0.5 whitespace-nowrap">
+              <span className="mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-black bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 shadow-md flex items-center gap-0.5 whitespace-nowrap animate-pulse">
                 <Sparkles className="w-2.5 h-2.5 shrink-0" />
-                <span>我已接单</span>
+                <span>我的接单</span>
               </span>
             ) : hasVisitors ? (
-              <span className="mt-0.5 px-1 py-0.2 rounded text-[9px] font-bold bg-indigo-600 text-indigo-100 shadow-sm flex items-center gap-0.5 whitespace-nowrap">
+              <span className="mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-600 text-white shadow-md flex items-center gap-0.5 whitespace-nowrap">
                 <UserCheck className="w-2.5 h-2.5 shrink-0" />
                 <span>玩家接单</span>
               </span>
@@ -317,7 +325,7 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
             <button
               onClick={() => onLeave(channel.channel_no)}
               disabled={isActionLoading}
-              className="px-3 py-1.5 text-xs font-bold text-purple-200 bg-purple-900/90 hover:bg-purple-800 border border-purple-500 rounded-lg transition-colors flex items-center gap-1 shadow-md active:scale-95 cursor-pointer shrink-0"
+              className="px-3 py-1.5 text-xs font-black text-amber-950 bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 border border-amber-300 rounded-lg transition-all flex items-center gap-1 shadow-md active:scale-95 cursor-pointer shrink-0"
               title="您已接单此频道，点击退单"
             >
               <LogOut className="w-3.5 h-3.5" />
