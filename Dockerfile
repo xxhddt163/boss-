@@ -7,7 +7,7 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# 复制依赖配置并使用 --legacy-peer-deps 解决 Vite 与 esbuild peer 依赖冲突
+# 复制依赖配置并使用 --legacy-peer-deps 防止 peer 依赖冲突
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
@@ -21,9 +21,9 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=443
+ENV PORT=3000
 
-# 安装生产依赖与 tsx，同样指定 --legacy-peer-deps 防止依赖解析报错
+# 安装生产依赖与 tsx (用于高效执行 TypeScript 服务端)
 COPY package*.json ./
 RUN npm install --omit=dev --legacy-peer-deps && npm install -g tsx
 
@@ -35,13 +35,13 @@ COPY --from=builder /app/src/assets ./src/assets
 COPY --from=builder /app/metadata.json ./metadata.json
 
 # 创建数据持久化及 SSL 证书挂载目录
-RUN mkdir -p /app/data /app/certs
+RUN mkdir -p /app/data /certs
 
-# 暴露端口 (443 HTTPS 安全端口, 80 HTTP 重定向端口, 3000 开发/直连端口)
-EXPOSE 443 80 3000
+# 暴露容器内部默认服务端口 (对应 -p 宿主机端口:3000)
+EXPOSE 3000
 
 # 声明持久化数据卷与证书卷
-VOLUME ["/app/data", "/app/certs"]
+VOLUME ["/app/data", "/certs"]
 
 # 启动服务端
 CMD ["tsx", "server.ts"]
