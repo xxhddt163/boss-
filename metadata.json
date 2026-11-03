@@ -1,0 +1,6 @@
+{
+  "name": "Snowman Tracker - 驮狼雪人 Boss 刷新时间管理系统",
+  "description": "多人共享的《冒险岛》驮狼雪人 Boss 1-60 频道刷新时间与击杀监控系统，支持实时倒计时、访问状态、多人协作与击杀记录管理。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
