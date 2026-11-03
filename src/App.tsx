@@ -180,6 +180,9 @@ export default function App() {
     if (!currentUser) return;
     try {
       sound.playClick();
+      setChannels((prev) =>
+        prev.map((c) => (c.channel_no === channelNo ? { ...c, channel_tag: tag } : c))
+      );
       await api.updateChannelTag(channelNo, tag);
       showNotice(
         'success',

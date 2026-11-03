@@ -284,6 +284,7 @@ export function computeChannelStatus(
   return {
     channel_no: channel.channel_no,
     channel_note: channel.channel_note || '',
+    channel_tag: channel.channel_tag || '',
     status,
     status_label,
     last_kill: latestKill,
