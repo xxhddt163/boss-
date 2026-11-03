@@ -14,7 +14,7 @@ import { AdminModal } from './components/AdminModal.tsx';
 import { LoginPortal } from './components/LoginPortal.tsx';
 import { KillConfirmModal } from './components/KillConfirmModal.tsx';
 import { sound } from './utils/sound.ts';
-import { AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { AlertCircle, CheckCircle, Info, RotateCcw } from 'lucide-react';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -39,6 +39,7 @@ export default function App() {
   const [adminModalOpen, setAdminModalOpen] = useState<boolean>(false);
   const [historyChannelNo, setHistoryChannelNo] = useState<number | null>(null);
   const [confirmKillChannelNo, setConfirmKillChannelNo] = useState<number | null>(null);
+  const [resetConfirmChannelNo, setResetConfirmChannelNo] = useState<number | null>(null);
 
   // Notification banners (e.g. concurrent kill click alert)
   const [bannerNotice, setBannerNotice] = useState<{ type: 'info' | 'success' | 'warn'; message: string } | null>(null);
@@ -176,6 +177,28 @@ export default function App() {
     }
   };
 
+  // Admin: Request Reset Channel Times
+  const handleRequestReset = (channelNo: number) => {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    setResetConfirmChannelNo(channelNo);
+  };
+
+  // Admin: Confirm Reset Channel Times
+  const handleConfirmReset = async () => {
+    if (!currentUser || currentUser.role !== 'admin' || resetConfirmChannelNo === null) return;
+    try {
+      setActionLoading(true);
+      sound.playClick();
+      await api.resetChannelTimes(resetConfirmChannelNo);
+      showNotice('success', `【管理员操作】已成功将 ${resetConfirmChannelNo} 频道的所有时间信息初始化至空！`);
+      setResetConfirmChannelNo(null);
+    } catch (err: any) {
+      showNotice('warn', err.message || '重置频道失败');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Issue 3: Channel tag update by logged-in users
   const handleUpdateTag = async (channelNo: number, tag: string) => {
     if (!currentUser) return;
@@ -204,9 +227,9 @@ export default function App() {
   const filteredChannels = useMemo(() => {
     let result = [...channels];
 
-    // Status filter
+    // Status filter: 已接单频道无论在哪个状态Tab中，均保持显示并置顶高亮
     if (statusFilter !== 'all') {
-      result = result.filter((c) => c.status === statusFilter);
+      result = result.filter((c) => c.status === statusFilter || c.active_visitors.length > 0);
     }
 
     // Has visitor filter
@@ -291,8 +314,6 @@ export default function App() {
           setAuthModalOpen(true);
         }}
         onLogout={handleLogout}
-        activeTab={statusFilter}
-        onSelectTab={(tab) => setStatusFilter(tab as StatusFilter)}
       />
 
       {/* Floating Notice Banner */}
@@ -432,6 +453,7 @@ export default function App() {
                       onLeave={handleLeave}
                       onKill={handleRequestKill}
                       onOpenHistory={(ch) => setHistoryChannelNo(ch)}
+                      onReset={handleRequestReset}
                       onUpdateTag={handleUpdateTag}
                       isActionLoading={actionLoading}
                     />
@@ -460,6 +482,51 @@ export default function App() {
           onCancel={() => setConfirmKillChannelNo(null)}
           loading={actionLoading}
         />
+      )}
+
+      {/* Admin Reset Channel Confirmation Modal */}
+      {resetConfirmChannelNo !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
+          <div className="bg-slate-900 border border-amber-500/60 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 text-amber-400">
+              <div className="p-2.5 rounded-full bg-amber-950/80 border border-amber-600/50">
+                <RotateCcw className="w-6 h-6 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">
+                  重置 {resetConfirmChannelNo} 频道时间信息
+                </h3>
+                <p className="text-xs text-amber-300/80 font-medium">管理员专属操作</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-3.5 rounded-xl border border-slate-800">
+              确定要将 <strong className="text-amber-300">{resetConfirmChannelNo} 频道</strong> 的所有时间信息初始化至空吗？<br />
+              • 最近击杀时间、进刷时间、保底时间、距离进刷倒计时等将全部清空初始化至未记录状态 (<code className="text-slate-400 font-mono">--:--:--</code>)。<br />
+              • 该频道的备注与标签信息将予以保留。
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setResetConfirmChannelNo(null)}
+                disabled={actionLoading}
+                className="px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReset}
+                disabled={actionLoading}
+                className="px-4 py-2 text-xs font-bold text-slate-950 bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 rounded-lg transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>{actionLoading ? '正在重置...' : '确认初始化至空'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Channel Kill History / Backfill / Modify Modal */}

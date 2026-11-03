@@ -12,8 +12,8 @@ interface HeaderProps {
   onOpenAdmin: () => void;
   onChangePassword: () => void;
   onLogout: () => void;
-  activeTab: string;
-  onSelectTab: (tab: string) => void;
+  activeTab?: string;
+  onSelectTab?: (tab: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -69,7 +69,7 @@ export const Header: React.FC<HeaderProps> = ({
             href="/"
             onClick={(e) => {
               e.preventDefault();
-              onSelectTab('all');
+              onSelectTab?.('all');
             }}
             className="text-lg font-extrabold tracking-tight text-white whitespace-nowrap shrink-0 hover:text-cyan-400 transition-colors"
           >
@@ -79,44 +79,6 @@ export const Header: React.FC<HeaderProps> = ({
             驮狼雪人 1-60频道
           </span>
         </div>
-
-        {/* Zone 2: Navigation (Visible when logged in) */}
-        {currentUser && (
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-400">
-            <button
-              onClick={() => onSelectTab('all')}
-              className={`transition-colors whitespace-nowrap shrink-0 ${
-                activeTab === 'all' ? 'text-cyan-400 font-semibold' : 'hover:text-slate-200'
-              }`}
-            >
-              全服频道
-            </button>
-            <button
-              onClick={() => onSelectTab('waiting_entry')}
-              className={`transition-colors whitespace-nowrap shrink-0 ${
-                activeTab === 'waiting_entry' ? 'text-sky-400 font-semibold' : 'hover:text-slate-200'
-              }`}
-            >
-              等待进刷
-            </button>
-            <button
-              onClick={() => onSelectTab('in_spawn_window')}
-              className={`transition-colors whitespace-nowrap shrink-0 ${
-                activeTab === 'in_spawn_window' ? 'text-emerald-400 font-semibold' : 'hover:text-slate-200'
-              }`}
-            >
-              正在刷新
-            </button>
-            <button
-              onClick={() => onSelectTab('guaranteed_reached')}
-              className={`transition-colors whitespace-nowrap shrink-0 ${
-                activeTab === 'guaranteed_reached' ? 'text-rose-400 font-semibold' : 'hover:text-slate-200'
-              }`}
-            >
-              已到保底
-            </button>
-          </nav>
-        )}
 
         {/* Zone 3: Actions & User session */}
         <div className="flex items-center gap-3 shrink-0">

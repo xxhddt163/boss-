@@ -134,6 +134,11 @@ export const api = {
       body: JSON.stringify({ channel_tag }),
     }),
 
+  resetChannelTimes: (channelNo: number) =>
+    request<{ success: boolean; channel: ChannelComputedView }>(`/api/channels/${channelNo}/reset`, {
+      method: 'POST',
+    }),
+
   // Admin
   getUsers: () => request<{ users: User[] }>('/api/admin/users'),
   setUserStatus: (userId: string, status: 'active' | 'disabled' | 'pending') =>

@@ -614,3 +614,52 @@ channelsRouter.put('/:channelNo/tag', (req: Request, res: Response) => {
   return res.json({ success: true, channel_tag: tagVal });
 });
 
+// 12. Reset Channel Times (Admin only)
+channelsRouter.post('/:channelNo/reset', (req: Request, res: Response) => {
+  const channelNo = parseInt(req.params.channelNo, 10);
+  if (isNaN(channelNo) || channelNo < 1 || channelNo > 60) {
+    return res.status(400).json({ error: '无效的频道编号' });
+  }
+
+  const user = getAuthUser(req);
+  if (!user || user.role !== 'admin') {
+    return res.status(403).json({ error: '权限不足：仅管理员账号可执行频道时间重置' });
+  }
+
+  const db = loadDB();
+  const channel = db.channels.find((c) => c.channel_no === channelNo);
+  if (!channel) {
+    return res.status(404).json({ error: '频道不存在' });
+  }
+
+  const now = new Date().toISOString();
+
+  // Void all active kill records for this channel so time information initializes to empty (--:--:--)
+  const activeKills = db.kill_records.filter((k) => k.channel_no === channelNo && !k.is_void);
+  for (const kill of activeKills) {
+    kill.is_void = true;
+    kill.void_reason = `管理员(${user.username})重置频道时间`;
+    kill.voided_at = now;
+    kill.voided_by = user.username;
+  }
+
+  channel.version += 1;
+  channel.updated_at = now;
+  channel.updated_by = user.username;
+
+  scheduleSave();
+
+  logOperation({
+    user_id: user.id,
+    username: user.username,
+    channel_no: channelNo,
+    action: 'CHANNEL_RESET_TIMES',
+    new_data: { voided_kills_count: activeKills.length },
+  });
+
+  broadcastChannelsUpdate();
+
+  const updatedView = computeChannelStatus(channel, new Date());
+  return res.json({ success: true, channel: updatedView });
+});
+
