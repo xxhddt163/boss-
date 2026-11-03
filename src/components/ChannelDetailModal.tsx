@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { KillRecord, User } from '../types.ts';
 import { api } from '../services/api.ts';
 import { formatBeijing } from '../utils/time.ts';
+import { AlarmTimePicker } from './AlarmTimePicker.tsx';
 import {
   X,
   PlusCircle,
@@ -114,11 +115,7 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
   // Handle edit record
   const startEdit = (rec: KillRecord) => {
     setEditingRecordId(rec.id);
-    // Format to datetime-local input string YYYY-MM-DDTHH:mm
-    const d = new Date(rec.killed_at);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const localIso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    setEditTime(localIso);
+    setEditTime(rec.killed_at);
     setEditGameId(rec.game_id);
     setEditNote(rec.kill_note || '');
   };
@@ -258,16 +255,24 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
           </div>
 
           {/* Action Toolbar */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="text-sm font-bold text-white flex items-center gap-2">
               <Clock className="w-4 h-4 text-cyan-400" />
               <span>击杀记录历史 ({records.length}条)</span>
+              <span className="text-[11px] text-slate-400 font-normal">
+                (仅保存12小时内历史，超过自动清理)
+              </span>
             </div>
 
             {currentUser && (
               <button
-                onClick={() => setShowBackfill(!showBackfill)}
-                className="px-3 py-1.5 text-xs font-semibold text-cyan-300 bg-cyan-950/60 border border-cyan-700/60 hover:bg-cyan-900/60 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+                onClick={() => {
+                  if (!showBackfill && !bfTime) {
+                    setBfTime(new Date().toISOString());
+                  }
+                  setShowBackfill(!showBackfill);
+                }}
+                className="px-3 py-1.5 text-xs font-semibold text-cyan-300 bg-cyan-950/60 border border-cyan-700/60 hover:bg-cyan-900/60 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <PlusCircle className="w-3.5 h-3.5" />
                 <span>{showBackfill ? '关闭补录' : '手动补录历史击杀'}</span>
@@ -275,28 +280,21 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
             )}
           </div>
 
-          {/* Manual Backfill Panel */}
+          {/* Manual Backfill Panel with Alarm Time Picker */}
           {showBackfill && (
             <form
               onSubmit={handleBackfill}
-              className="p-4 rounded-xl bg-slate-950/80 border border-cyan-800/60 space-y-3"
+              className="p-4 rounded-xl bg-slate-950/80 border border-cyan-800/60 space-y-3.5"
             >
               <div className="font-semibold text-cyan-300">
                 手动补录击杀记录
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">
-                    实际击杀时间 *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={bfTime}
-                    onChange={(e) => setBfTime(e.target.value)}
-                    required
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
-                  />
-                </div>
+              <AlarmTimePicker
+                valueIso={bfTime || new Date().toISOString()}
+                onChangeIso={setBfTime}
+                label="选择实际击杀时间（自动生成当日年月，可点选闹钟表格）"
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div>
                   <label className="block text-[11px] text-slate-400 mb-1">
                     击杀玩家游戏 ID
@@ -326,13 +324,13 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowBackfill(false)}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg shadow-sm"
+                  className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg shadow-sm cursor-pointer"
                 >
                   确认补录
                 </button>
@@ -345,7 +343,7 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
             <div className="py-12 text-center text-slate-500">正在加载击杀记录...</div>
           ) : records.length === 0 ? (
             <div className="py-12 text-center text-slate-500 rounded-xl bg-slate-950/30 border border-slate-800/40">
-              暂无击杀记录。当玩家在此频道击杀或补录后，将显示在此处。
+              暂无击杀记录（仅保留12小时内有效数据）。当玩家在此频道击杀或补录后，将显示在此处。
             </div>
           ) : (
             <div className="space-y-3">
@@ -363,25 +361,21 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
                     }`}
                   >
                     {isEditing ? (
-                      <div className="space-y-3 p-2 bg-slate-900/90 rounded-lg border border-cyan-800/60">
+                      <div className="space-y-3 p-3 bg-slate-900/90 rounded-lg border border-cyan-800/60">
                         <div className="font-semibold text-cyan-300">编辑击杀记录</div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <div>
-                            <label className="block text-[11px] text-slate-400 mb-1">击杀时间</label>
-                            <input
-                              type="datetime-local"
-                              value={editTime}
-                              onChange={(e) => setEditTime(e.target.value)}
-                              className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs"
-                            />
-                          </div>
+                        <AlarmTimePicker
+                          valueIso={editTime || rec.killed_at}
+                          onChangeIso={setEditTime}
+                          label="调整实际击杀时间（闹钟表格选时/选分）"
+                        />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                           <div>
                             <label className="block text-[11px] text-slate-400 mb-1">游戏 ID</label>
                             <input
                               type="text"
                               value={editGameId}
                               onChange={(e) => setEditGameId(e.target.value)}
-                              className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs"
+                              className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200"
                             />
                           </div>
                           <div>
@@ -390,20 +384,20 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
                               type="text"
                               value={editNote}
                               onChange={(e) => setEditNote(e.target.value)}
-                              className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs"
+                              className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200"
                             />
                           </div>
                         </div>
                         <div className="flex justify-end gap-2 pt-1">
                           <button
                             onClick={() => setEditingRecordId(null)}
-                            className="px-3 py-1 bg-slate-800 text-slate-300 rounded"
+                            className="px-3 py-1 bg-slate-800 text-slate-300 rounded cursor-pointer"
                           >
                             取消
                           </button>
                           <button
                             onClick={() => saveEdit(rec.id)}
-                            className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded"
+                            className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded cursor-pointer"
                           >
                             保存修改
                           </button>

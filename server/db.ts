@@ -132,6 +132,7 @@ export function loadDB(): DBState {
       }
 
       dbState = parsed;
+      cleanupOldKillRecords();
       return dbState;
     } catch (err) {
       console.error('Failed to parse db.json, creating new database', err);
@@ -158,6 +159,25 @@ export function saveDBImmediate(): void {
     console.error('Error writing db file', e);
   }
 }
+
+// Auto cleanup: Only keep kill history within 12 hours, purge records older than 12 hours
+export function cleanupOldKillRecords(): void {
+  if (!dbState) return;
+  const twelveHoursAgo = Date.now() - 12 * 60 * 60 * 1000;
+  const beforeCount = dbState.kill_records.length;
+  dbState.kill_records = dbState.kill_records.filter((k) => {
+    const kTime = new Date(k.killed_at).getTime();
+    return !isNaN(kTime) && kTime >= twelveHoursAgo;
+  });
+  if (dbState.kill_records.length !== beforeCount) {
+    scheduleSave();
+  }
+}
+
+// Start recurring cleanup timer every 5 minutes
+setInterval(() => {
+  cleanupOldKillRecords();
+}, 5 * 60 * 1000);
 
 export function scheduleSave(): void {
   if (saveTimer) return;

@@ -234,8 +234,17 @@ export default function App() {
       });
     }
 
-    // Sorting
+    // Sorting (Requirement 3 & 4: Current user's accepted channel is pinned to the absolute top row)
     result.sort((a, b) => {
+      const myVisitedA = currentUser
+        ? a.active_visitors.some((v) => v.user_id === currentUser.id)
+        : false;
+      const myVisitedB = currentUser
+        ? b.active_visitors.some((v) => v.user_id === currentUser.id)
+        : false;
+      if (myVisitedA && !myVisitedB) return -1;
+      if (!myVisitedA && myVisitedB) return 1;
+
       if (sortOption === 'channel_asc') {
         return a.channel_no - b.channel_no;
       }
