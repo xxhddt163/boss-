@@ -7,3 +7,6 @@ coverage/
 .env*
 !.env.example
 deploy.sh
+
+# 运行时数据与备份（避免污染版本库及泄露账号击杀数据）
+data/
