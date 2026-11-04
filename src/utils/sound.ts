@@ -1,12 +1,35 @@
 class SoundSystem {
   private ctx: AudioContext | null = null;
   private enabled: boolean = true;
+  private voices: SpeechSynthesisVoice[] = [];
+  private voicesLoaded: boolean = false;
 
   constructor() {
     // Sound enabled by default
     const saved = localStorage.getItem('snowman_sound_enabled');
     if (saved !== null) {
       this.enabled = saved === 'true';
+    }
+    this.initVoices();
+  }
+
+  private initVoices(): void {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const loadVoices = () => {
+      try {
+        const v = window.speechSynthesis.getVoices();
+        if (v && v.length > 0) {
+          this.voices = v;
+          this.voicesLoaded = true;
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    loadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
     }
   }
 
@@ -126,6 +149,115 @@ class SoundSystem {
 
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.05);
+  }
+
+  // Female voice selection helper
+  public getFemaleZhVoice(): SpeechSynthesisVoice | null {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+    let list = this.voices;
+    if (!list || list.length === 0) {
+      try {
+        list = window.speechSynthesis.getVoices();
+        this.voices = list;
+      } catch {
+        list = [];
+      }
+    }
+    if (!list || list.length === 0) return null;
+
+    // Filter Chinese voices (zh-CN, zh-TW, zh-HK, cmn, etc.)
+    const zhVoices = list.filter((v) => {
+      const lang = (v.lang || '').toLowerCase().replace('_', '-');
+      return lang.startsWith('zh') || lang.startsWith('cmn');
+    });
+
+    // Preferred female Chinese voice models (e.g. Edge Xiaoxiao/Xiaoyi, Windows Huihui/Yaoyao, Apple Ting-Ting/Sin-ji/Meijia)
+    const preferredFemaleNames = [
+      'xiaoxiao',
+      'xiaoyi',
+      'ting-ting',
+      'tingting',
+      'huihui',
+      'yaoyao',
+      'meijia',
+      'mei-jia',
+      'sin-ji',
+      'sinji',
+      'natural',
+      'female',
+      '女',
+      'woman'
+    ];
+
+    const matchPreferred = zhVoices.find((v) => {
+      const name = (v.name || '').toLowerCase();
+      return preferredFemaleNames.some((kw) => name.includes(kw));
+    });
+
+    if (matchPreferred) return matchPreferred;
+
+    // Next preference: zh-CN voice
+    const zhCn = zhVoices.find((v) => {
+      const lang = (v.lang || '').toLowerCase();
+      return lang.includes('cn') || lang.includes('hans');
+    });
+    if (zhCn) return zhCn;
+
+    // Fallback to any Chinese voice
+    if (zhVoices.length > 0) return zhVoices[0];
+
+    return null;
+  }
+
+  // Core Speech Synthesis method
+  public speak(text: string, isFemale: boolean = true): void {
+    if (!this.enabled) return;
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    try {
+      // Resume if paused
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'zh-CN';
+      utterance.rate = 1.0; // Natural pace
+      utterance.pitch = isFemale ? 1.2 : 1.0; // 1.2 gives a distinct, clear and sweet female pitch
+      utterance.volume = 1.0;
+
+      const voice = this.getFemaleZhVoice();
+      if (voice) {
+        utterance.voice = voice;
+      }
+
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.warn('Speech synthesis playback error:', err);
+    }
+  }
+
+  // 1. 进刷时间倒计时完毕: 女声语音播报“XX频道已进入刷时间，请注意蹲守击杀”
+  public speakEntryReached(channelNo: number): void {
+    if (!this.enabled) return;
+    this.playEntryReached();
+    this.speak(`${channelNo}频道已进入刷时间，请注意蹲守击杀`, true);
+  }
+
+  // 2. 进刷时间倒计时仅剩5分钟: 女声语音播报“XX频道距离进入刷时间仅剩5分钟”
+  public speakBeforeEntry(channelNo: number): void {
+    if (!this.enabled) return;
+    this.playBeforeEntry();
+    this.speak(`${channelNo}频道距离进入刷时间仅剩5分钟`, true);
+  }
+
+  // Helper to test voice broadcast
+  public testVoice(type: 'entry' | 'before_5m', channelNo: number = 1): void {
+    if (type === 'entry') {
+      this.speakEntryReached(channelNo);
+    } else {
+      this.speakBeforeEntry(channelNo);
+    }
   }
 }
 

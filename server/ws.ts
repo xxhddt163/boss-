@@ -159,6 +159,8 @@ function broadcastClockAndCheckAlerts(now: Date): void {
         triggeredAlerts.add(before5mKey);
         broadcastAll({
           type: 'BOSS_ALERT',
+          alert_key: before5mKey,
+          kill_id: killId,
           channel_no: channel.channel_no,
           stage: 'before_entry',
           title: `${channel.channel_no}频道 即将进刷`,
@@ -175,6 +177,8 @@ function broadcastClockAndCheckAlerts(now: Date): void {
         triggeredAlerts.add(entryKey);
         broadcastAll({
           type: 'BOSS_ALERT',
+          alert_key: entryKey,
+          kill_id: killId,
           channel_no: channel.channel_no,
           stage: 'entry_reached',
           title: `${channel.channel_no}频道 已进入刷时间`,
@@ -191,6 +195,8 @@ function broadcastClockAndCheckAlerts(now: Date): void {
         triggeredAlerts.add(guaranteedKey);
         broadcastAll({
           type: 'BOSS_ALERT',
+          alert_key: guaranteedKey,
+          kill_id: killId,
           channel_no: channel.channel_no,
           stage: 'guaranteed_reached',
           title: `${channel.channel_no}频道 已到保底`,

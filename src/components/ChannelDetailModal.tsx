@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { KillRecord, User } from '../types.ts';
 import { api } from '../services/api.ts';
 import { formatBeijing } from '../utils/time.ts';
-import { AlarmTimePicker } from './AlarmTimePicker.tsx';
+import { WheelTimePickerModal } from './WheelTimePickerModal.tsx';
 import {
   X,
   PlusCircle,
@@ -14,6 +14,7 @@ import {
   FileText,
   Clock,
   UserCheck,
+  ChevronRight,
 } from 'lucide-react';
 
 interface ChannelDetailModalProps {
@@ -52,6 +53,39 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
   // Void record state
   const [voidingRecordId, setVoidingRecordId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState<string>('');
+
+  // Wheel Time Picker State
+  const [timePickerTarget, setTimePickerTarget] = useState<'backfill' | 'edit' | null>(null);
+  const [timePickerDate, setTimePickerDate] = useState<Date>(new Date());
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const formatTimeHms = (isoString?: string) => {
+    if (!isoString) return '--:--:--';
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '--:--:--';
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  };
+  const formatDateYmd = (isoString?: string) => {
+    if (!isoString) return '';
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+  const formatDateTime = (isoString?: string) => {
+    if (!isoString) return '--:--:--';
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '--:--:--';
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  };
+
+  const handleTimeConfirmed = (newDate: Date) => {
+    if (timePickerTarget === 'backfill') {
+      setBfTime(newDate.toISOString());
+    } else if (timePickerTarget === 'edit') {
+      setEditTime(newDate.toISOString());
+    }
+    setTimePickerTarget(null);
+  };
 
   const loadData = async () => {
     try {
@@ -305,59 +339,78 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
             )}
           </div>
 
-          {/* Manual Backfill Panel with Alarm Time Picker */}
+          {/* Manual Backfill Panel matching user screenshot */}
           {showBackfill && (
             <form
               onSubmit={handleBackfill}
-              className="p-4 rounded-xl bg-slate-950/80 border border-cyan-800/60 space-y-3.5"
+              className="p-5 rounded-2xl bg-slate-950/90 border border-slate-700/80 space-y-4 shadow-xl"
             >
-              <div className="font-semibold text-cyan-300">
-                手动补录击杀记录
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                <span className="font-bold text-slate-100 text-sm">手动补录历史击杀</span>
+                <span className="text-[11px] text-cyan-400 font-mono">
+                  {formatDateYmd(bfTime || new Date().toISOString())}
+                </span>
               </div>
-              <AlarmTimePicker
-                valueIso={bfTime || new Date().toISOString()}
-                onChangeIso={setBfTime}
-                label="选择实际击杀时间（自动生成当日年月，可点选闹钟表格）"
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">
-                    击杀玩家游戏 ID
-                  </label>
+
+              {/* Clickable 击杀时间 row matching user screenshot */}
+              <div
+                onClick={() => {
+                  setTimePickerDate(bfTime ? new Date(bfTime) : new Date());
+                  setTimePickerTarget('backfill');
+                }}
+                className="flex items-center justify-between py-2.5 px-2 hover:bg-slate-900 rounded-xl cursor-pointer transition-colors border-b border-slate-800/80 group"
+              >
+                <span className="text-xs font-medium text-slate-300">击杀时间</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-bold font-mono text-cyan-300 tracking-wider">
+                    {formatDateTime(bfTime || new Date().toISOString())}
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all" />
+                </div>
+              </div>
+
+              {/* Game ID & Note */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-[11px] text-slate-400">击杀玩家游戏 ID</label>
                   <input
                     type="text"
                     value={bfGameId}
                     onChange={(e) => setBfGameId(e.target.value)}
                     placeholder="玩家游戏ID"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+                    className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
                   />
                 </div>
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">
-                    本次击杀备注
-                  </label>
+
+                <div className="space-y-1">
+                  <label className="block text-[11px] text-slate-400">备注（可选）</label>
                   <input
                     type="text"
                     value={bfNote}
                     onChange={(e) => setBfNote(e.target.value)}
-                    placeholder="可选，如：掉落装备情况"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+                    placeholder="例如：队伍确认"
+                    className="w-full bg-slate-900 border border-slate-800 focus:border-cyan-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
                   />
                 </div>
               </div>
-              <div className="flex justify-end gap-2 pt-1">
+
+              <p className="text-[11px] text-slate-500">
+                提交后会更新当前模式下该线路的刷新预估
+              </p>
+
+              <div className="flex items-center gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowBackfill(false)}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer"
+                  className="flex-1 py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer text-center"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg shadow-sm cursor-pointer"
+                  className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors shadow-md cursor-pointer text-center"
                 >
-                  确认补录
+                  下一步确认
                 </button>
               </div>
             </form>
@@ -386,45 +439,71 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
                     }`}
                   >
                     {isEditing ? (
-                      <div className="space-y-3 p-3 bg-slate-900/90 rounded-lg border border-cyan-800/60">
-                        <div className="font-semibold text-cyan-300">编辑击杀记录</div>
-                        <AlarmTimePicker
-                          valueIso={editTime || rec.killed_at}
-                          onChangeIso={setEditTime}
-                          label="调整实际击杀时间（闹钟表格选时/选分）"
-                        />
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      <div className="space-y-3.5 p-4 bg-slate-900/90 rounded-2xl border border-cyan-800/60 shadow-lg">
+                        <div className="flex items-center justify-between pb-1 border-b border-slate-800">
+                          <span className="font-bold text-cyan-300 text-sm">编辑击杀记录</span>
+                          <span className="text-[11px] text-slate-400 font-mono">
+                            {formatDateYmd(editTime || rec.killed_at)}
+                          </span>
+                        </div>
+
+                        {/* Clickable 击杀时间 row */}
+                        <div
+                          onClick={() => {
+                            setTimePickerDate(editTime ? new Date(editTime) : new Date(rec.killed_at));
+                            setTimePickerTarget('edit');
+                          }}
+                          className="flex items-center justify-between py-2 px-2 hover:bg-slate-950/80 rounded-xl cursor-pointer transition-colors border-b border-slate-800/80 group"
+                        >
+                          <span className="text-xs font-medium text-slate-300">击杀时间</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-bold font-mono text-cyan-300 tracking-wider">
+                              {formatDateTime(editTime || rec.killed_at)}
+                            </span>
+                            <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all" />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                           <div>
                             <label className="block text-[11px] text-slate-400 mb-1">游戏 ID</label>
                             <input
                               type="text"
                               value={editGameId}
                               onChange={(e) => setEditGameId(e.target.value)}
-                              className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200"
+                              className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
                             />
                           </div>
                           <div>
-                            <label className="block text-[11px] text-slate-400 mb-1">本次备注</label>
+                            <label className="block text-[11px] text-slate-400 mb-1">备注（可选）</label>
                             <input
                               type="text"
                               value={editNote}
                               onChange={(e) => setEditNote(e.target.value)}
-                              className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200"
+                              placeholder="例如：队伍确认"
+                              className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none"
                             />
                           </div>
                         </div>
-                        <div className="flex justify-end gap-2 pt-1">
+
+                        <p className="text-[11px] text-slate-500">
+                          提交后会更新当前模式下该线路的刷新预估
+                        </p>
+
+                        <div className="flex justify-end gap-2.5 pt-1">
                           <button
+                            type="button"
                             onClick={() => setEditingRecordId(null)}
-                            className="px-3 py-1 bg-slate-800 text-slate-300 rounded cursor-pointer"
+                            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium cursor-pointer"
                           >
                             取消
                           </button>
                           <button
+                            type="button"
                             onClick={() => saveEdit(rec.id)}
-                            className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded cursor-pointer"
+                            className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs shadow-md cursor-pointer transition-colors"
                           >
-                            保存修改
+                            下一步确认
                           </button>
                         </div>
                       </div>
@@ -557,6 +636,14 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Wheel Time Picker Dialog matching user screenshot */}
+      <WheelTimePickerModal
+        isOpen={timePickerTarget !== null}
+        valueDate={timePickerDate}
+        onClose={() => setTimePickerTarget(null)}
+        onConfirm={handleTimeConfirmed}
+      />
     </div>
   );
 };

@@ -13,7 +13,7 @@ import { AuthModal } from './components/AuthModal.tsx';
 import { AdminModal } from './components/AdminModal.tsx';
 import { LoginPortal } from './components/LoginPortal.tsx';
 import { KillConfirmModal } from './components/KillConfirmModal.tsx';
-import { sound } from './utils/sound.ts';
+import { sound, sendDesktopNotification } from './utils/sound.ts';
 import { AlertCircle, CheckCircle, Info, RotateCcw } from 'lucide-react';
 
 export default function App() {
@@ -25,6 +25,10 @@ export default function App() {
   const [serverTime, setServerTime] = useState<Date>(new Date());
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
+
+  // Tracking alerts already announced for a specific channel and kill round
+  const handledAlertsRef = React.useRef<Set<string>>(new Set());
+  const channelsRef = React.useRef<ChannelComputedView[]>([]);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -86,6 +90,10 @@ export default function App() {
   };
 
   useEffect(() => {
+    channelsRef.current = channels;
+  }, [channels]);
+
+  useEffect(() => {
     fetchInitialData();
 
     // Connect WebSocket
@@ -106,13 +114,80 @@ export default function App() {
       } else if (payload.type === 'CLOCK_TICK') {
         // Ticked from server
       } else if (payload.type === 'BOSS_ALERT') {
+        const key = payload.alert_key || `${payload.channel_no}_${payload.kill_id || ''}_${payload.stage}`;
+        if (!handledAlertsRef.current.has(key)) {
+          handledAlertsRef.current.add(key);
+          if (payload.stage === 'before_entry') {
+            sound.speakBeforeEntry(payload.channel_no);
+            sendDesktopNotification(payload.title, payload.message);
+          } else if (payload.stage === 'entry_reached') {
+            sound.speakEntryReached(payload.channel_no);
+            sendDesktopNotification(payload.title, payload.message);
+          } else if (payload.stage === 'guaranteed_reached') {
+            sound.playGuaranteedReached();
+            sendDesktopNotification(payload.title, payload.message);
+          }
+        }
         showNotice('warn', `${payload.title}: ${payload.message}`);
       }
     });
 
-    // 1-second interval to tick local server-synced clock
+    // 1-second interval to tick local server-synced clock & evaluate alerts locally
     const clockTimer = setInterval(() => {
-      setServerTime(getCurrentServerTime());
+      const now = getCurrentServerTime();
+      setServerTime(now);
+      const nowMs = now.getTime();
+
+      // Check transitions locally to guarantee female voice broadcast fires promptly even if WS drops momentarily
+      channelsRef.current.forEach((ch) => {
+        if (!ch.last_kill || ch.last_kill.is_void) return;
+        const killId = ch.last_kill.id;
+        const entryMs = new Date(ch.last_kill.entry_at).getTime();
+        const guaranteedMs = ch.last_kill.guaranteed_at ? new Date(ch.last_kill.guaranteed_at).getTime() : 0;
+        const reminderMs = 5 * 60 * 1000;
+
+        // 1. 5 minutes before entry: 女声语音播报“XX频道距离进入刷时间仅剩5分钟”
+        const before5mKey = `${ch.channel_no}_${killId}_before_5m`;
+        if (nowMs >= entryMs - reminderMs && nowMs < entryMs) {
+          if (!handledAlertsRef.current.has(before5mKey)) {
+            handledAlertsRef.current.add(before5mKey);
+            sound.speakBeforeEntry(ch.channel_no);
+            sendDesktopNotification(
+              `${ch.channel_no}频道 即将进刷`,
+              `${ch.channel_no}频道 距离进刷仅剩 5 分钟（进刷时间 ${ch.entry_at_display}）`
+            );
+            showNotice('warn', `${ch.channel_no}频道 即将进刷: 距离进刷仅剩 5 分钟`);
+          }
+        }
+
+        // 2. Reached entry time: 女声语音播报“XX频道已进入刷时间，请注意蹲守击杀”
+        const entryKey = `${ch.channel_no}_${killId}_entry`;
+        if (nowMs >= entryMs && (guaranteedMs === 0 || nowMs < guaranteedMs)) {
+          if (!handledAlertsRef.current.has(entryKey)) {
+            handledAlertsRef.current.add(entryKey);
+            sound.speakEntryReached(ch.channel_no);
+            sendDesktopNotification(
+              `${ch.channel_no}频道 已进入刷时间`,
+              `${ch.channel_no}频道 已经可以刷新，请蹲守击杀！`
+            );
+            showNotice('warn', `${ch.channel_no}频道 已进入刷时间: 请注意蹲守击杀！`);
+          }
+        }
+
+        // 3. Reached guaranteed time
+        const guaranteedKey = `${ch.channel_no}_${killId}_guaranteed`;
+        if (guaranteedMs > 0 && nowMs >= guaranteedMs) {
+          if (!handledAlertsRef.current.has(guaranteedKey)) {
+            handledAlertsRef.current.add(guaranteedKey);
+            sound.playGuaranteedReached();
+            sendDesktopNotification(
+              `${ch.channel_no}频道 已到保底`,
+              `${ch.channel_no}频道 已达保底时间（${ch.guaranteed_at_display}），请火速确认击杀！`
+            );
+            showNotice('warn', `${ch.channel_no}频道 已到保底: 请火速确认击杀！`);
+          }
+        }
+      });
     }, 1000);
 
     return () => {
