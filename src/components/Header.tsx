@@ -9,6 +9,7 @@ interface HeaderProps {
   currentUser: User | null;
   onlineCount: number;
   wsConnected: boolean;
+  pendingUsersCount?: number;
   onOpenAdmin: () => void;
   onChangePassword: () => void;
   onLogout: () => void;
@@ -20,6 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser,
   onlineCount,
   wsConnected,
+  pendingUsersCount,
   onOpenAdmin,
   onChangePassword,
   onLogout,
@@ -113,10 +115,19 @@ export const Header: React.FC<HeaderProps> = ({
           {currentUser && currentUser.role === 'admin' && (
             <button
               onClick={onOpenAdmin}
-              className="px-3 py-1.5 text-xs font-semibold text-cyan-300 bg-cyan-950/60 border border-cyan-800/80 rounded-lg hover:bg-cyan-900/60 transition-colors whitespace-nowrap flex items-center gap-1.5 shadow-sm"
+              className={`relative px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5 shadow-sm ${
+                pendingUsersCount && pendingUsersCount > 0
+                  ? 'text-amber-200 bg-amber-950/70 border border-amber-600/70 hover:bg-amber-900/70'
+                  : 'text-cyan-300 bg-cyan-950/60 border border-cyan-800/80 hover:bg-cyan-900/60'
+              }`}
             >
               <Shield className="w-3.5 h-3.5" />
               <span>系统管理</span>
+              {pendingUsersCount && pendingUsersCount > 0 ? (
+                <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-500 text-slate-950 animate-pulse">
+                  {pendingUsersCount} 待审
+                </span>
+              ) : null}
             </button>
           )}
 

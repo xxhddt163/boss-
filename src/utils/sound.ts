@@ -251,6 +251,16 @@ class SoundSystem {
     this.speak(`${channelNo}频道距离进入刷时间仅剩5分钟`, true);
   }
 
+  // 3. 管理员登录时有待审核账号提醒: 提示音 + 女声播报
+  public speakPendingAuditReminder(count: number): void {
+    if (!this.enabled) return;
+    this.playBeforeEntry();
+    const text = count === 1
+      ? '管理员您好，当前有1个新账号等待审核，请注意及时处理'
+      : `管理员您好，当前有${count}个新账号等待审核，请注意及时处理`;
+    this.speak(text, true);
+  }
+
   // Helper to test voice broadcast
   public testVoice(type: 'entry' | 'before_5m', channelNo: number = 1): void {
     if (type === 'entry') {

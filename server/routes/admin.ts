@@ -65,6 +65,69 @@ adminRouter.get('/users', (req: Request, res: Response) => {
   res.json({ users: safeUsers });
 });
 
+// 1.1 Get pending users specifically
+adminRouter.get('/pending-users', (req: Request, res: Response) => {
+  const admin = requireAdmin(req, res);
+  if (!admin) return;
+
+  const db = loadDB();
+  const pendingUsers = db.users
+    .filter((u) => u.status === 'pending')
+    .map((u) => ({
+      id: u.id,
+      username: u.username,
+      nickname: u.nickname,
+      game_id: u.game_id,
+      phone: u.phone,
+      role: u.role,
+      status: u.status,
+      created_at: u.created_at,
+    }));
+
+  res.json({
+    count: pendingUsers.length,
+    users: pendingUsers,
+  });
+});
+
+// 1.2 Batch approve pending users
+adminRouter.post('/users/batch-approve', (req: Request, res: Response) => {
+  const admin = requireAdmin(req, res);
+  if (!admin) return;
+
+  const { userIds } = req.body || {};
+  const db = loadDB();
+  const now = new Date().toISOString();
+  let approvedCount = 0;
+
+  db.users.forEach((u) => {
+    if (u.status === 'pending') {
+      if (!userIds || (Array.isArray(userIds) && userIds.includes(u.id))) {
+        u.status = 'active';
+        u.updated_at = now;
+        approvedCount++;
+        logOperation({
+          user_id: admin.id,
+          username: admin.username,
+          action: 'USER_APPROVE',
+          new_data: { target_id: u.id, target_username: u.username, target_game_id: u.game_id },
+        });
+      }
+    }
+  });
+
+  if (approvedCount > 0) {
+    scheduleSave();
+  }
+
+  res.json({
+    success: true,
+    approvedCount,
+    message: `成功审核通过 ${approvedCount} 个账号！`,
+  });
+});
+
+
 // 2. Change user status (approve / disable)
 adminRouter.post('/users/:userId/status', (req: Request, res: Response) => {
   const admin = requireAdmin(req, res);

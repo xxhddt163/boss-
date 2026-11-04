@@ -54,11 +54,11 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(body),
   }),
-  login: (body: any) => request<{ token: string; user: User }>('/api/auth/login', {
+  login: (body: any) => request<{ token: string; user: User; pendingUsersCount?: number; pendingUsers?: User[] }>('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify(body),
   }),
-  getCurrentUser: () => request<{ user: User }>('/api/auth/me'),
+  getCurrentUser: () => request<{ user: User; pendingUsersCount?: number; pendingUsers?: User[] }>('/api/auth/me'),
   changePassword: (body: any) => request<{ success: boolean; message: string }>('/api/auth/change-password', {
     method: 'POST',
     body: JSON.stringify(body),
@@ -141,6 +141,12 @@ export const api = {
 
   // Admin
   getUsers: () => request<{ users: User[] }>('/api/admin/users'),
+  getPendingUsers: () => request<{ count: number; users: User[] }>('/api/admin/pending-users'),
+  batchApproveUsers: (userIds?: string[]) =>
+    request<{ success: boolean; approvedCount: number; message: string }>('/api/admin/users/batch-approve', {
+      method: 'POST',
+      body: JSON.stringify({ userIds }),
+    }),
   setUserStatus: (userId: string, status: 'active' | 'disabled' | 'pending') =>
     request<{ success: boolean; user: User }>(`/api/admin/users/${userId}/status`, {
       method: 'POST',

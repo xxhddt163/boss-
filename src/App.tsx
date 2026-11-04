@@ -14,6 +14,7 @@ import { AdminModal } from './components/AdminModal.tsx';
 import { LoginPortal } from './components/LoginPortal.tsx';
 import { KillConfirmModal } from './components/KillConfirmModal.tsx';
 import { AdminKillStatsSection } from './components/AdminKillStatsSection.tsx';
+import { PendingApprovalModal } from './components/PendingApprovalModal.tsx';
 import { sound, sendDesktopNotification } from './utils/sound.ts';
 import { AlertCircle, CheckCircle, Info, RotateCcw } from 'lucide-react';
 
@@ -27,6 +28,11 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [statsLastUpdate, setStatsLastUpdate] = useState<number>(Date.now());
+
+  // Admin Pending Users Review state
+  const [pendingUsers, setPendingUsers] = useState<User[]>([]);
+  const [pendingUsersCount, setPendingUsersCount] = useState<number>(0);
+  const [pendingModalOpen, setPendingModalOpen] = useState<boolean>(false);
 
   // Tracking alerts already announced for a specific channel and kill round
   const handledAlertsRef = React.useRef<Set<string>>(new Set());
@@ -57,6 +63,21 @@ export default function App() {
     }, 4500);
   };
 
+  // Check pending users for administrator
+  const checkPendingUsers = async (triggerAlerts: boolean = false) => {
+    try {
+      const res = await api.getPendingUsers();
+      setPendingUsers(res.users);
+      setPendingUsersCount(res.count);
+      if (res.count > 0 && triggerAlerts) {
+        setPendingModalOpen(true);
+        sound.speakPendingAuditReminder(res.count);
+      }
+    } catch {
+      // ignore non-admin or unauthenticated
+    }
+  };
+
   // 1. Initial Load
   const fetchInitialData = async () => {
     try {
@@ -78,6 +99,19 @@ export default function App() {
           if (userRes.user.must_change_password) {
             setAuthModalMode('change_password');
             setAuthModalOpen(true);
+          }
+          // If admin, check pending registrations
+          if (userRes.user.role === 'admin') {
+            if (userRes.pendingUsersCount !== undefined) {
+              setPendingUsers(userRes.pendingUsers || []);
+              setPendingUsersCount(userRes.pendingUsersCount);
+              if (userRes.pendingUsersCount > 0) {
+                setPendingModalOpen(true);
+                sound.speakPendingAuditReminder(userRes.pendingUsersCount);
+              }
+            } else {
+              checkPendingUsers(true);
+            }
           }
         } catch {
           setStoredToken(null);
@@ -404,6 +438,7 @@ export default function App() {
         currentUser={currentUser}
         onlineCount={onlineCount}
         wsConnected={wsConnected}
+        pendingUsersCount={currentUser?.role === 'admin' ? pendingUsersCount : 0}
         onOpenAdmin={() => setAdminModalOpen(true)}
         onChangePassword={() => {
           setAuthModalMode('change_password');
@@ -435,12 +470,22 @@ export default function App() {
       {/* Main Content Viewport: Issue 1 - if !currentUser, show dedicated LoginPortal directly */}
       {!currentUser ? (
         <LoginPortal
-          onLoginSuccess={(user) => {
+          onLoginSuccess={(user, pendingInfo) => {
             setCurrentUser(user);
             showNotice('success', `登录成功，欢迎回来：${user.game_id}！已解锁频道监控。`);
             if (user.must_change_password) {
               setAuthModalMode('change_password');
               setAuthModalOpen(true);
+            }
+            if (user.role === 'admin') {
+              if (pendingInfo && pendingInfo.count > 0) {
+                setPendingUsers(pendingInfo.users);
+                setPendingUsersCount(pendingInfo.count);
+                setPendingModalOpen(true);
+                sound.speakPendingAuditReminder(pendingInfo.count);
+              } else {
+                checkPendingUsers(true);
+              }
             }
           }}
         />
@@ -475,6 +520,37 @@ export default function App() {
               )}
             </div>
           </div>
+
+          {/* Admin Pending Users Review Banner */}
+          {currentUser.role === 'admin' && pendingUsersCount > 0 && (
+            <div className="mb-4 bg-gradient-to-r from-amber-950/80 via-amber-900/40 to-slate-900 border border-amber-500/50 rounded-xl p-3.5 sm:p-4 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+                  <AlertCircle className="w-5 h-5 animate-bounce" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-amber-200">待审核账号提醒</span>
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-amber-500/30 text-amber-300">
+                      {pendingUsersCount} 位玩家待审核
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    检测到有新玩家提交了注册申请，需管理员审核通过后方可登录使用。
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <button
+                  onClick={() => setPendingModalOpen(true)}
+                  className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg shadow transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>立即查看并审核</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Admin Kill Statistics: 每日，每周，每月，每个人的击杀总数，条形图与饼状图 (仅管理员可见) */}
           {currentUser.role === 'admin' && (
@@ -649,8 +725,30 @@ export default function App() {
       {/* Admin Control Center Modal */}
       {adminModalOpen && (
         <AdminModal
-          onClose={() => setAdminModalOpen(false)}
-          onDataChanged={fetchInitialData}
+          onClose={() => {
+            setAdminModalOpen(false);
+            checkPendingUsers(false);
+          }}
+          onDataChanged={() => {
+            fetchInitialData();
+            checkPendingUsers(false);
+          }}
+        />
+      )}
+
+      {/* Pending Accounts Approval Modal */}
+      {pendingModalOpen && (
+        <PendingApprovalModal
+          pendingUsers={pendingUsers}
+          onClose={() => setPendingModalOpen(false)}
+          onOpenAdminUsers={() => {
+            setPendingModalOpen(false);
+            setAdminModalOpen(true);
+          }}
+          onUsersApproved={() => {
+            checkPendingUsers(false);
+            fetchInitialData();
+          }}
         />
       )}
     </div>

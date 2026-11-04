@@ -5,7 +5,7 @@ import { Lock, User as UserIcon, Phone, RefreshCw, AlertCircle, CheckCircle, Shi
 import emblemImg from '../assets/images/snowman_boss_emblem_1793630816599.jpg';
 
 interface LoginPortalProps {
-  onLoginSuccess: (user: User) => void;
+  onLoginSuccess: (user: User, pendingInfo?: { count: number; users: User[] }) => void;
 }
 
 export const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess }) => {
@@ -53,7 +53,10 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess }) => {
         password: loginPassword,
       });
       setStoredToken(res.token);
-      onLoginSuccess(res.user);
+      onLoginSuccess(res.user, {
+        count: res.pendingUsersCount || 0,
+        users: res.pendingUsers || [],
+      });
     } catch (err: any) {
       setErrorMsg(err.message || '登录失败，请核对用户名和密码');
     } finally {

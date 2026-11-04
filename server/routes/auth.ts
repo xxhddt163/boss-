@@ -121,6 +121,24 @@ authRouter.post('/login', (req: Request, res: Response) => {
   // Simple token payload
   const token = Buffer.from(JSON.stringify({ userId: user.id, ts: Date.now() })).toString('base64');
 
+  let pendingUsersCount = 0;
+  let pendingUsers: any[] = [];
+  if (user.role === 'admin') {
+    pendingUsers = db.users
+      .filter((u) => u.status === 'pending')
+      .map((u) => ({
+        id: u.id,
+        username: u.username,
+        nickname: u.nickname,
+        game_id: u.game_id,
+        phone: u.phone,
+        role: u.role,
+        status: u.status,
+        created_at: u.created_at,
+      }));
+    pendingUsersCount = pendingUsers.length;
+  }
+
   return res.json({
     token,
     user: {
@@ -133,6 +151,8 @@ authRouter.post('/login', (req: Request, res: Response) => {
       status: user.status,
       must_change_password: !!user.must_change_password,
     },
+    pendingUsersCount,
+    pendingUsers,
   });
 });
 
@@ -152,6 +172,24 @@ authRouter.get('/me', (req: Request, res: Response) => {
       return res.status(401).json({ error: '用户不存在或状态异常' });
     }
 
+    let pendingUsersCount = 0;
+    let pendingUsers: any[] = [];
+    if (user.role === 'admin') {
+      pendingUsers = db.users
+        .filter((u) => u.status === 'pending')
+        .map((u) => ({
+          id: u.id,
+          username: u.username,
+          nickname: u.nickname,
+          game_id: u.game_id,
+          phone: u.phone,
+          role: u.role,
+          status: u.status,
+          created_at: u.created_at,
+        }));
+      pendingUsersCount = pendingUsers.length;
+    }
+
     return res.json({
       user: {
         id: user.id,
@@ -163,6 +201,8 @@ authRouter.get('/me', (req: Request, res: Response) => {
         status: user.status,
         must_change_password: !!user.must_change_password,
       },
+      pendingUsersCount,
+      pendingUsers,
     });
   } catch {
     return res.status(401).json({ error: '凭证无效' });
