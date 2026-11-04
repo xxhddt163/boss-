@@ -13,6 +13,7 @@ import { AuthModal } from './components/AuthModal.tsx';
 import { AdminModal } from './components/AdminModal.tsx';
 import { LoginPortal } from './components/LoginPortal.tsx';
 import { KillConfirmModal } from './components/KillConfirmModal.tsx';
+import { AdminKillStatsSection } from './components/AdminKillStatsSection.tsx';
 import { sound, sendDesktopNotification } from './utils/sound.ts';
 import { AlertCircle, CheckCircle, Info, RotateCcw } from 'lucide-react';
 
@@ -25,6 +26,7 @@ export default function App() {
   const [serverTime, setServerTime] = useState<Date>(new Date());
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
+  const [statsLastUpdate, setStatsLastUpdate] = useState<number>(Date.now());
 
   // Tracking alerts already announced for a specific channel and kill round
   const handledAlertsRef = React.useRef<Set<string>>(new Set());
@@ -107,8 +109,10 @@ export default function App() {
         if (payload.channels) setChannels(payload.channels);
         if (payload.boss) setBossConfig(payload.boss);
         if (payload.onlineCount !== undefined) setOnlineCount(payload.onlineCount);
+        setStatsLastUpdate(Date.now());
       } else if (payload.type === 'CHANNELS_UPDATE') {
         if (payload.channels) setChannels(payload.channels);
+        setStatsLastUpdate(Date.now());
       } else if (payload.type === 'ONLINE_COUNT') {
         setOnlineCount(payload.count);
       } else if (payload.type === 'CLOCK_TICK') {
@@ -243,6 +247,7 @@ export default function App() {
       sound.playClick();
       const res = await api.recordKill(confirmKillChannelNo);
       sound.playEntryReached();
+      setStatsLastUpdate(Date.now());
       showNotice('success', `${res.message}，已自动完成并清除本次接单！`);
       setConfirmKillChannelNo(null);
     } catch (err: any) {
@@ -471,6 +476,14 @@ export default function App() {
             </div>
           </div>
 
+          {/* Admin Kill Statistics: 每日，每周，每月，每个人的击杀总数，条形图与饼状图 (仅管理员可见) */}
+          {currentUser.role === 'admin' && (
+            <AdminKillStatsSection
+              currentUser={currentUser}
+              lastUpdateTimestamp={statsLastUpdate}
+            />
+          )}
+
           {/* 1. Statistics Bar */}
           <StatsBar
             channels={channels}
@@ -614,7 +627,10 @@ export default function App() {
           channelNo={historyChannelNo}
           currentUser={currentUser}
           onClose={() => setHistoryChannelNo(null)}
-          onRefreshChannels={fetchInitialData}
+          onRefreshChannels={() => {
+            fetchInitialData();
+            setStatsLastUpdate(Date.now());
+          }}
         />
       )}
 

@@ -1,0 +1,649 @@
+{
+  "users": [
+    {
+      "id": "user_admin_001",
+      "username": "admin",
+      "password_hash": "$2b$10$jgls8bEiDNKnoB5hxRy8Pefg1FQRebnlhX7gFkgVqm2rN6jg/pFM.",
+      "nickname": "系统管理员",
+      "game_id": "GM管理员",
+      "phone": "13800000000",
+      "role": "admin",
+      "status": "active",
+      "must_change_password": true,
+      "created_at": "2026-11-04T08:56:32.265Z",
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "last_login_at": "2026-11-04T08:57:02.963Z"
+    }
+  ],
+  "boss": {
+    "id": "boss_snowman_01",
+    "boss_name": "驮狼雪人",
+    "entry_interval": 60,
+    "guaranteed_interval": 90,
+    "enabled": true,
+    "updated_at": "2026-11-04T08:56:32.265Z",
+    "updated_by": "system"
+  },
+  "channels": [
+    {
+      "id": "ch_1",
+      "channel_no": 1,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_2",
+      "channel_no": 2,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_3",
+      "channel_no": 3,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_4",
+      "channel_no": 4,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_5",
+      "channel_no": 5,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_6",
+      "channel_no": 6,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_7",
+      "channel_no": 7,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_8",
+      "channel_no": 8,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_9",
+      "channel_no": 9,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_10",
+      "channel_no": 10,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_11",
+      "channel_no": 11,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_12",
+      "channel_no": 12,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_13",
+      "channel_no": 13,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_14",
+      "channel_no": 14,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_15",
+      "channel_no": 15,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_16",
+      "channel_no": 16,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_17",
+      "channel_no": 17,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_18",
+      "channel_no": 18,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_19",
+      "channel_no": 19,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_20",
+      "channel_no": 20,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_21",
+      "channel_no": 21,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_22",
+      "channel_no": 22,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_23",
+      "channel_no": 23,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_24",
+      "channel_no": 24,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_25",
+      "channel_no": 25,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_26",
+      "channel_no": 26,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_27",
+      "channel_no": 27,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_28",
+      "channel_no": 28,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_29",
+      "channel_no": 29,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_30",
+      "channel_no": 30,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_31",
+      "channel_no": 31,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_32",
+      "channel_no": 32,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_33",
+      "channel_no": 33,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_34",
+      "channel_no": 34,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_35",
+      "channel_no": 35,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_36",
+      "channel_no": 36,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_37",
+      "channel_no": 37,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_38",
+      "channel_no": 38,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_39",
+      "channel_no": 39,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_40",
+      "channel_no": 40,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_41",
+      "channel_no": 41,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_42",
+      "channel_no": 42,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_43",
+      "channel_no": 43,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_44",
+      "channel_no": 44,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_45",
+      "channel_no": 45,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_46",
+      "channel_no": 46,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_47",
+      "channel_no": 47,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_48",
+      "channel_no": 48,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_49",
+      "channel_no": 49,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_50",
+      "channel_no": 50,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_51",
+      "channel_no": 51,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_52",
+      "channel_no": 52,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_53",
+      "channel_no": 53,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_54",
+      "channel_no": 54,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_55",
+      "channel_no": 55,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_56",
+      "channel_no": 56,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_57",
+      "channel_no": 57,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_58",
+      "channel_no": 58,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_59",
+      "channel_no": 59,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    },
+    {
+      "id": "ch_60",
+      "channel_no": 60,
+      "boss_id": "boss_snowman_01",
+      "channel_note": "",
+      "channel_tag": "",
+      "version": 1,
+      "updated_at": "2026-11-04T08:56:32.265Z",
+      "updated_by": "system"
+    }
+  ],
+  "kill_records": [],
+  "channel_visits": [],
+  "operation_logs": [
+    {
+      "id": "log_1793782622963_9hnxu",
+      "user_id": "user_admin_001",
+      "username": "admin",
+      "action": "USER_LOGIN",
+      "created_at": "2026-11-04T08:57:02.963Z",
+      "request_id": "req_1793782622963"
+    }
+  ],
+  "settings": {
+    "timezone": "Asia/Shanghai",
+    "reminder_before": 5,
+    "sound_enabled": true,
+    "notification_enabled": true,
+    "updated_at": "2026-11-04T08:56:32.265Z",
+    "updated_by": "system"
+  }
+}

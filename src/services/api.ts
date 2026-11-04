@@ -1,4 +1,4 @@
-import { User, BossConfig, ChannelComputedView, KillRecord, OperationLog, SystemSettings } from '../types.ts';
+import { User, BossConfig, ChannelComputedView, KillRecord, OperationLog, SystemSettings, KillStatsData } from '../types.ts';
 
 const TOKEN_KEY = 'snowman_auth_token';
 
@@ -182,4 +182,5 @@ export const api = {
       body: JSON.stringify({ filename }),
     }),
   resetDatabase: () => request<{ success: boolean; message: string }>('/api/admin/reset-database', { method: 'POST' }),
+  getKillStats: () => request<KillStatsData>('/api/admin/kill-stats'),
 };

@@ -386,3 +386,279 @@ adminRouter.post('/reset-database', (req: Request, res: Response) => {
   res.json({ success: true, message: '系统数据库已重置为全新空白状态！所有击杀与访问数据已清空。' });
 });
 
+// Helper for Beijing Time parts
+function getBeijingDateParts(d: Date) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(d);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || '00';
+  const year = parseInt(get('year'), 10);
+  const month = parseInt(get('month'), 10);
+  const day = parseInt(get('day'), 10);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return {
+    year,
+    month,
+    day,
+    dateKey: `${year}-${pad(month)}-${pad(day)}`,
+    label: `${pad(month)}-${pad(day)}`,
+    monthKey: `${year}-${pad(month)}`,
+    monthLabel: `${month}月`,
+    yearMonth: `${year}年${month}月`,
+  };
+}
+
+function getBeijingWeekInfo(d: Date) {
+  const beijingParts = getBeijingDateParts(d);
+  const target = new Date(`${beijingParts.dateKey}T12:00:00+08:00`);
+  const dayNr = (target.getDay() + 6) % 7; // Monday = 0, Sunday = 6
+  
+  // Calculate ISO week number
+  const thurs = new Date(target);
+  thurs.setDate(target.getDate() - dayNr + 3);
+  const firstJan = new Date(thurs.getFullYear(), 0, 4);
+  const weekNum = 1 + Math.round(((thurs.getTime() - firstJan.getTime()) / 86400000 - 3 + ((firstJan.getDay() + 6) % 7)) / 7);
+  const weekPad = String(Math.max(1, weekNum)).padStart(2, '0');
+
+  // Calculate Monday and Sunday of this week
+  const mon = new Date(target);
+  mon.setDate(target.getDate() - dayNr);
+  const sun = new Date(mon);
+  sun.setDate(sun.getDate() + 6);
+  const monParts = getBeijingDateParts(mon);
+  const sunParts = getBeijingDateParts(sun);
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  return {
+    weekKey: `${beijingParts.year}-W${weekPad}`,
+    weekLabel: `第${weekNum}周`,
+    dateRange: `${pad(monParts.month)}/${pad(monParts.day)}-${pad(sunParts.month)}/${pad(sunParts.day)}`,
+  };
+}
+
+const STAT_PALETTE = [
+  '#06b6d4', // cyan-500
+  '#10b981', // emerald-500
+  '#8b5cf6', // violet-500
+  '#f59e0b', // amber-500
+  '#f43f5e', // rose-500
+  '#3b82f6', // blue-500
+  '#ec4899', // pink-500
+  '#14b8a6', // teal-500
+  '#a855f7', // purple-500
+  '#eab308', // yellow-500
+  '#6366f1', // indigo-500
+  '#84cc16', // lime-500
+];
+
+// 13. Admin Kill Statistics: 每日，每周，每月，每个人的击杀总数，条形图与饼状图数据
+adminRouter.get('/kill-stats', (req: Request, res: Response) => {
+  const admin = requireAdmin(req, res);
+  if (!admin) return;
+
+  const db = loadDB();
+  const validKills = db.kill_records.filter((r) => !r.is_void);
+  const totalKills = validKills.length;
+
+  const now = new Date();
+  const todayParts = getBeijingDateParts(now);
+  const todayDateKey = todayParts.dateKey;
+  const thisMonthKey = todayParts.monthKey;
+  const currentWeekInfo = getBeijingWeekInfo(now);
+  const thisWeekKey = currentWeekInfo.weekKey;
+
+  // Yesterday
+  const yesterdayDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const yesterdayKey = getBeijingDateParts(yesterdayDate).dateKey;
+
+  // Last Week
+  const lastWeekDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const lastWeekKey = getBeijingWeekInfo(lastWeekDate).weekKey;
+
+  // Last Month
+  const lastMonthDate = new Date(todayParts.year, todayParts.month - 2, 1);
+  const lastMonthKey = getBeijingDateParts(lastMonthDate).monthKey;
+
+  // Daily map initialization: past 14 days
+  const dailyStatsMap = new Map<string, { date: string; label: string; count: number; isToday: boolean }>();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    const p = getBeijingDateParts(d);
+    dailyStatsMap.set(p.dateKey, {
+      date: p.dateKey,
+      label: p.label,
+      count: 0,
+      isToday: p.dateKey === todayDateKey,
+    });
+  }
+
+  // Weekly map initialization: past 8 weeks
+  const weeklyStatsMap = new Map<string, { week: string; label: string; dateRange: string; count: number; isCurrentWeek: boolean }>();
+  for (let w = 7; w >= 0; w--) {
+    const d = new Date(now.getTime() - w * 7 * 24 * 60 * 60 * 1000);
+    const wInfo = getBeijingWeekInfo(d);
+    if (!weeklyStatsMap.has(wInfo.weekKey)) {
+      weeklyStatsMap.set(wInfo.weekKey, {
+        week: wInfo.weekKey,
+        label: wInfo.weekLabel,
+        dateRange: wInfo.dateRange,
+        count: 0,
+        isCurrentWeek: wInfo.weekKey === thisWeekKey,
+      });
+    }
+  }
+
+  // Monthly map initialization: past 6 months
+  const monthlyStatsMap = new Map<string, { month: string; label: string; yearMonth: string; count: number; isCurrentMonth: boolean }>();
+  for (let m = 5; m >= 0; m--) {
+    const d = new Date(todayParts.year, todayParts.month - 1 - m, 1);
+    const mParts = getBeijingDateParts(d);
+    monthlyStatsMap.set(mParts.monthKey, {
+      month: mParts.monthKey,
+      label: mParts.monthLabel,
+      yearMonth: mParts.yearMonth,
+      count: 0,
+      isCurrentMonth: mParts.monthKey === thisMonthKey,
+    });
+  }
+
+  // User Map for rich profiles
+  const userMap = new Map<string, User>();
+  for (const u of db.users) {
+    userMap.set(u.id, u);
+    userMap.set(u.username, u);
+  }
+
+  // Member accumulator
+  const memberMap = new Map<string, {
+    user_id?: string;
+    game_id: string;
+    username: string;
+    todayCount: number;
+    weekCount: number;
+    monthCount: number;
+    totalCount: number;
+    lastKilledAt?: string;
+    lastChannelNo?: number;
+  }>();
+
+  let todayKills = 0;
+  let yesterdayKills = 0;
+  let thisWeekKills = 0;
+  let lastWeekKills = 0;
+  let thisMonthKills = 0;
+  let lastMonthKills = 0;
+
+  // Process all valid kills
+  for (const record of validKills) {
+    const kDate = new Date(record.killed_at);
+    const kParts = getBeijingDateParts(kDate);
+    const kWInfo = getBeijingWeekInfo(kDate);
+
+    // 1. Daily
+    if (dailyStatsMap.has(kParts.dateKey)) {
+      dailyStatsMap.get(kParts.dateKey)!.count += 1;
+    }
+    if (kParts.dateKey === todayDateKey) {
+      todayKills += 1;
+    } else if (kParts.dateKey === yesterdayKey) {
+      yesterdayKills += 1;
+    }
+
+    // 2. Weekly
+    if (weeklyStatsMap.has(kWInfo.weekKey)) {
+      weeklyStatsMap.get(kWInfo.weekKey)!.count += 1;
+    }
+    if (kWInfo.weekKey === thisWeekKey) {
+      thisWeekKills += 1;
+    } else if (kWInfo.weekKey === lastWeekKey) {
+      lastWeekKills += 1;
+    }
+
+    // 3. Monthly
+    if (monthlyStatsMap.has(kParts.monthKey)) {
+      monthlyStatsMap.get(kParts.monthKey)!.count += 1;
+    }
+    if (kParts.monthKey === thisMonthKey) {
+      thisMonthKills += 1;
+    } else if (kParts.monthKey === lastMonthKey) {
+      lastMonthKills += 1;
+    }
+
+    // 4. Per person / character
+    const charName = (record.game_id || record.created_by || '神秘玩家').trim();
+    let mem = memberMap.get(charName);
+    if (!mem) {
+      const u = record.created_by_user_id ? userMap.get(record.created_by_user_id) : userMap.get(record.created_by);
+      mem = {
+        user_id: record.created_by_user_id || u?.id,
+        game_id: charName,
+        username: u?.username || record.created_by || charName,
+        todayCount: 0,
+        weekCount: 0,
+        monthCount: 0,
+        totalCount: 0,
+      };
+      memberMap.set(charName, mem);
+    }
+
+    mem.totalCount += 1;
+    if (kParts.dateKey === todayDateKey) mem.todayCount += 1;
+    if (kWInfo.weekKey === thisWeekKey) mem.weekCount += 1;
+    if (kParts.monthKey === thisMonthKey) mem.monthCount += 1;
+
+    if (!mem.lastKilledAt || new Date(record.killed_at).getTime() > new Date(mem.lastKilledAt).getTime()) {
+      mem.lastKilledAt = record.killed_at;
+      mem.lastChannelNo = record.channel_no;
+    }
+  }
+
+  // Convert member stats array and sort by total kills desc
+  const memberStatsList = Array.from(memberMap.values()).sort((a, b) => b.totalCount - a.totalCount);
+  const memberStats = memberStatsList.map((m, idx) => {
+    const percentage = totalKills > 0 ? Math.round((m.totalCount / totalKills) * 1000) / 10 : 0;
+    const color = STAT_PALETTE[idx % STAT_PALETTE.length];
+    return {
+      ...m,
+      percentage,
+      color,
+    };
+  });
+
+  // Pie chart role share data: top roles + others if too many
+  const roleShare = memberStats.map((m) => ({
+    game_id: m.game_id,
+    username: m.username,
+    count: m.totalCount,
+    percentage: m.percentage,
+    color: m.color,
+  }));
+
+  const payload = {
+    totalKills,
+    todayKills,
+    yesterdayKills,
+    thisWeekKills,
+    lastWeekKills,
+    thisMonthKills,
+    lastMonthKills,
+    uniqueKillersCount: memberStats.length,
+    dailyStats: Array.from(dailyStatsMap.values()),
+    weeklyStats: Array.from(weeklyStatsMap.values()),
+    monthlyStats: Array.from(monthlyStatsMap.values()),
+    roleShare,
+    memberStats,
+  };
+
+  res.json(payload);
+});
+
+

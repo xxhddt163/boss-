@@ -88,3 +88,65 @@ export interface SystemSettings {
   updated_at: string;
   updated_by: string;
 }
+
+export interface DailyKillStat {
+  date: string; // YYYY-MM-DD
+  label: string; // MM-DD
+  count: number;
+  isToday?: boolean;
+}
+
+export interface WeeklyKillStat {
+  week: string; // YYYY-Www
+  label: string; // e.g. "第45周"
+  dateRange: string; // e.g. "11/02-11/08"
+  count: number;
+  isCurrentWeek?: boolean;
+}
+
+export interface MonthlyKillStat {
+  month: string; // YYYY-MM
+  label: string; // e.g. "11月"
+  yearMonth: string; // e.g. "2026年11月"
+  count: number;
+  isCurrentMonth?: boolean;
+}
+
+export interface RoleKillShare {
+  game_id: string; // 角色名
+  username?: string;
+  count: number;
+  percentage: number; // e.g. 28.5
+  color: string;
+}
+
+export interface MemberKillStat {
+  user_id?: string;
+  game_id: string;
+  username: string;
+  todayCount: number;
+  weekCount: number;
+  monthCount: number;
+  totalCount: number;
+  percentage: number;
+  lastKilledAt?: string;
+  lastChannelNo?: number;
+  color: string;
+}
+
+export interface KillStatsData {
+  totalKills: number;
+  todayKills: number;
+  yesterdayKills: number;
+  thisWeekKills: number;
+  lastWeekKills: number;
+  thisMonthKills: number;
+  lastMonthKills: number;
+  uniqueKillersCount: number;
+  dailyStats: DailyKillStat[];
+  weeklyStats: WeeklyKillStat[];
+  monthlyStats: MonthlyKillStat[];
+  roleShare: RoleKillShare[];
+  memberStats: MemberKillStat[];
+}
+

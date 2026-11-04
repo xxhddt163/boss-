@@ -38,21 +38,6 @@ async function startServer() {
   const isProd = process.env.NODE_ENV === 'production';
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-  if (!isProd) {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.resolve(__dirname, 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.resolve(distPath, 'index.html'));
-    });
-  }
-
   // Check if direct SSL certificates are provided for standalone HTTPS
   const defaultCertPath = path.resolve(__dirname, 'certs', 'server.crt');
   const defaultKeyPath = path.resolve(__dirname, 'certs', 'server.key');
@@ -91,8 +76,27 @@ async function startServer() {
     server = http.createServer(app);
   }
 
-  // Attach WebSocket server (automatically supports WS over HTTP and WSS over HTTPS)
-  initWebSocketServer(server);
+  // Attach app's WebSocket server on path /ws
+  initWebSocketServer(server as any);
+
+  if (!isProd) {
+    const { createServer: createViteServer } = await import('vite');
+    const vite = await createViteServer({
+      server: {
+        middlewareMode: true,
+        ws: { server },
+        hmr: { server },
+      },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.resolve(__dirname, 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.resolve(distPath, 'index.html'));
+    });
+  }
 
   server.listen(PORT, '0.0.0.0', () => {
     const proto = isHttps ? 'https' : 'http';

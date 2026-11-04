@@ -21,7 +21,20 @@ const clients = new Set<ConnectedClient>();
 const triggeredAlerts = new Set<string>(); // key: `${channelNo}_${killId}_${stage}`
 
 export function initWebSocketServer(server: Server): WebSocketServer {
-  wss = new WebSocketServer({ server, path: '/ws' });
+  wss = new WebSocketServer({ noServer: true });
+
+  server.on('upgrade', (req, socket, head) => {
+    try {
+      const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+      if (url.pathname === '/ws') {
+        wss?.handleUpgrade(req, socket, head, (ws) => {
+          wss?.emit('connection', ws, req);
+        });
+      }
+    } catch {
+      // ignore invalid upgrade url
+    }
+  });
 
   wss.on('connection', (ws: WebSocket, req) => {
     const client: ConnectedClient = {
