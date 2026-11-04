@@ -75,9 +75,6 @@ export const Header: React.FC<HeaderProps> = ({
           >
             SNOWMAN TRACKER
           </a>
-          <span className="hidden sm:inline text-xs font-medium text-cyan-400/80 border-l border-slate-800 pl-3">
-            驮狼雪人 1-60频道
-          </span>
         </div>
 
         {/* Zone 3: Actions & User session */}

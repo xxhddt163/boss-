@@ -456,9 +456,6 @@ export default function App() {
                 <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
                   {bossConfig?.boss_name || '驮狼雪人'} Boss 刷新时间管理系统
                 </h1>
-                <p className="text-xs text-slate-400 max-w-2xl">
-                  规则：进刷时间 = 击杀 + {bossConfig?.entry_interval || 60} 分钟，保底时间 = 击杀 + {bossConfig?.guaranteed_interval || 90} 分钟。接单自动登记角色，击杀确认后自动释放接单并全服广播。
-                </p>
               </div>
 
               {currentUser.role === 'admin' && (
@@ -500,9 +497,6 @@ export default function App() {
             <div className="flex items-center justify-between text-xs text-slate-400 px-1 pb-2">
               <span>
                 显示频道：<strong className="text-white font-mono">{filteredChannels.length}</strong> / 60
-              </span>
-              <span className="text-[11px] text-slate-400">
-                提示：所有被接单的频道自动高亮置顶（当前登录账号所接单频道优先显示在第1行）
               </span>
             </div>
 
@@ -556,13 +550,7 @@ export default function App() {
         </main>
       )}
 
-      {/* Footer */}
-      <footer className="mt-auto border-t border-slate-800/80 bg-slate-950 py-4 px-6 text-center text-xs text-slate-400">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>SNOWMAN TRACKER · 冒险岛驮狼雪人 Boss 刷新时间管理系统 V1.1</span>
-          <span>服务器时间同步基准：Asia/Shanghai (北京时间) · 多人 WebSocket 实时互联</span>
-        </div>
-      </footer>
+
 
       {/* Issue 5: Kill Confirmation Modal */}
       {confirmKillChannelNo !== null && (

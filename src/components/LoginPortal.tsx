@@ -114,9 +114,6 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess }) => {
             <span>冒险岛驮狼雪人</span>
             <span className="text-cyan-400">刷新监控</span>
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            仅限受权玩家与管理员访问内部频道数据与击杀监控
-          </p>
 
           {/* Mode Switch Tabs */}
           <div className="mt-5 grid grid-cols-2 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs font-semibold">
@@ -209,10 +206,6 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ onLoginSuccess }) => {
                 >
                   {loading ? '正在验证身份...' : '登 录 系 统'}
                 </button>
-              </div>
-
-              <div className="pt-3 border-t border-slate-800 text-[11px] text-slate-400 text-center leading-relaxed">
-                提示：新注册账号须经管理员审核开通后方可登录系统。
               </div>
             </form>
           ) : (
