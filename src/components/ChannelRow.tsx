@@ -131,7 +131,7 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
 
   return (
     <div
-      className={`w-full mb-2 rounded-xl border transition-all duration-200 px-2.5 sm:px-3.5 py-2 shadow-sm relative min-w-[840px] ${
+      className={`w-full mb-2 rounded-xl border transition-all duration-200 px-2.5 sm:px-3.5 py-2 shadow-sm relative min-w-[860px] ${
         tagDropdownOpen ? 'z-50 ring-1 ring-cyan-500/50' : 'z-0'
       } ${
         isMyVisiting || hasVisitors
@@ -246,12 +246,12 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
           )}
         </div>
 
-        {/* 3. 距离进刷时间 (Column w-28 sm:w-32) */}
-        <div className="w-28 sm:w-32 shrink-0 flex items-center gap-1.5">
+        {/* 3. 距离进刷时间 (Column w-30 sm:w-34) - 字体稍微改大 */}
+        <div className="w-30 sm:w-34 shrink-0 flex items-center gap-1.5">
           <span className={`w-2 h-2 rounded-full shrink-0 ${statusStyles.statusDot}`} />
           <div className="flex flex-col">
             <span
-              className={`text-sm sm:text-base font-black font-mono tracking-tight tabular-nums ${statusStyles.countdownColor}`}
+              className={`text-base sm:text-lg font-black font-mono tracking-tight tabular-nums ${statusStyles.countdownColor}`}
             >
               {countdown.text}
             </span>
@@ -261,23 +261,23 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
           </div>
         </div>
 
-        {/* 4. 最近击杀时间 (Column w-20 sm:w-24: Only HH:mm:ss) */}
-        <div className="w-20 sm:w-24 shrink-0">
-          <span className="text-sm sm:text-base font-black font-mono text-slate-100 tabular-nums">
+        {/* 4. 最近击杀时间 (Column w-22 sm:w-26: Only HH:mm:ss) - 字体稍微改大 */}
+        <div className="w-22 sm:w-26 shrink-0">
+          <span className="text-base sm:text-lg font-black font-mono text-slate-100 tabular-nums">
             {killTimeHms}
           </span>
         </div>
 
-        {/* 5. 进刷时间 (Column w-20 sm:w-24: Only HH:mm:ss) */}
-        <div className="w-20 sm:w-24 shrink-0">
-          <span className="text-sm sm:text-base font-black font-mono text-rose-400 tabular-nums">
+        {/* 5. 进刷时间 (Column w-22 sm:w-26: Only HH:mm:ss) - 字体稍微改大 */}
+        <div className="w-22 sm:w-26 shrink-0">
+          <span className="text-base sm:text-lg font-black font-mono text-rose-400 tabular-nums">
             {entryTimeHms}
           </span>
         </div>
 
-        {/* 6. 保底时间 (Column w-20 sm:w-24: Only HH:mm:ss) */}
-        <div className="w-20 sm:w-24 shrink-0">
-          <span className="text-sm sm:text-base font-black font-mono text-sky-400 tabular-nums">
+        {/* 6. 保底时间 (Column w-22 sm:w-26: Only HH:mm:ss) - 字体稍微改大 */}
+        <div className="w-22 sm:w-26 shrink-0">
+          <span className="text-base sm:text-lg font-black font-mono text-sky-400 tabular-nums">
             {guaranteedTimeHms}
           </span>
         </div>
@@ -298,15 +298,24 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
           )}
         </div>
 
-        {/* 8. 频道长期备注 (Column flex-1 min-w-[50px]) */}
+        {/* 8. 频道长期备注 (Column flex-1 min-w-[50px]) - 普通用户可点击修改或添加 */}
         <div className="flex-1 min-w-[50px] truncate">
-          {channel.channel_note ? (
-            <span className="text-xs font-medium text-amber-200/90" title={channel.channel_note}>
-              {channel.channel_note}
-            </span>
-          ) : (
-            <span className="text-slate-600 text-xs">—</span>
-          )}
+          <button
+            type="button"
+            onClick={() => onOpenHistory(channel.channel_no)}
+            className="text-left w-full truncate cursor-pointer group"
+            title={channel.channel_note ? `${channel.channel_note}（点击修改长期备注）` : '点击添加频道长期备注'}
+          >
+            {channel.channel_note ? (
+              <span className="text-xs font-medium text-amber-200/90 group-hover:text-amber-100 group-hover:underline">
+                {channel.channel_note}
+              </span>
+            ) : (
+              <span className="text-slate-600 text-xs group-hover:text-slate-400">
+                {currentUser ? '+ 备注' : '—'}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* 9. 操作区 (Column w-48 sm:w-56 text-right) - 永远清晰呈现在最右侧 */}

@@ -534,12 +534,12 @@ channelsRouter.post('/:channelNo/records/:recordId/restore', (req: Request, res:
   return res.json({ success: true, record });
 });
 
-// 10. Update Channel Long-term Note (Section 5.2 - Admin ONLY)
+// 10. Update Channel Long-term Note (Opened to all logged-in users)
 channelsRouter.put('/:channelNo/note', (req: Request, res: Response) => {
   const channelNo = parseInt(req.params.channelNo, 10);
   const user = getAuthUser(req);
-  if (!user || user.role !== 'admin') {
-    return res.status(403).json({ error: '只有管理员可以修改频道长期备注' });
+  if (!user) {
+    return res.status(401).json({ error: '必须登录后方可修改频道长期备注' });
   }
 
   const { channel_note } = req.body;

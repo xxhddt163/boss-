@@ -63,10 +63,10 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             onChange={(e) => onSortChange(e.target.value as SortOption)}
             className="bg-slate-950/80 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500/80 cursor-pointer"
           >
-            <option value="channel_asc">频道编号 (1～60)</option>
+            <option value="channel_asc">综合排序 (击杀时间顺序+未记录顺延)</option>
             <option value="entry_soon">⚡ 即将进刷优先</option>
             <option value="guaranteed_soon">🔥 即将保底优先</option>
-            <option value="killed_desc">🕒 最近击杀时间</option>
+            <option value="killed_desc">🕒 最近击杀时间倒序</option>
           </select>
         </div>
       </div>

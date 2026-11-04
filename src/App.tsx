@@ -277,24 +277,40 @@ export default function App() {
       if (aHasOther && !bHasOther) return -1;
       if (!aHasOther && bHasOther) return 1;
 
-      if (sortOption === 'channel_asc') {
-        return a.channel_no - b.channel_no;
-      }
+      // Dropdown overrides:
       if (sortOption === 'entry_soon') {
         const remA = a.remaining_seconds_entry ?? 9999999;
         const remB = b.remaining_seconds_entry ?? 9999999;
-        return remA - remB;
-      }
-      if (sortOption === 'guaranteed_soon') {
+        if (remA !== remB) return remA - remB;
+      } else if (sortOption === 'guaranteed_soon') {
         const remA = a.remaining_seconds_guaranteed ?? 9999999;
         const remB = b.remaining_seconds_guaranteed ?? 9999999;
-        return remA - remB;
-      }
-      if (sortOption === 'killed_desc') {
+        if (remA !== remB) return remA - remB;
+      } else if (sortOption === 'killed_desc') {
         const timeA = a.last_kill ? new Date(a.last_kill.killed_at).getTime() : 0;
         const timeB = b.last_kill ? new Date(b.last_kill.killed_at).getTime() : 0;
-        return timeB - timeA;
+        if (timeA !== timeB) return timeB - timeA;
       }
+
+      // Default & Comprehensive sorting:
+      // 1. 有时间记录的频道排在前面，按击杀时间排序（01:01:00 在 01:05:00 上方）
+      // 2. 未记录的频道排在后面，按频道编号 1~60 顺序排列
+      const hasKillA = !!a.last_kill;
+      const hasKillB = !!b.last_kill;
+
+      if (hasKillA && !hasKillB) return -1;
+      if (!hasKillA && hasKillB) return 1;
+
+      if (hasKillA && hasKillB) {
+        const timeA = new Date(a.last_kill!.killed_at).getTime();
+        const timeB = new Date(b.last_kill!.killed_at).getTime();
+        if (timeA !== timeB) {
+          return timeA - timeB; // 01:01:00 比 01:05:00 靠前
+        }
+        return a.channel_no - b.channel_no;
+      }
+
+      // 双方均未记录时，按频道号顺序排列
       return a.channel_no - b.channel_no;
     });
 

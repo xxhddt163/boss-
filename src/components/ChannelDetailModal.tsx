@@ -211,16 +211,19 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
                 <FileText className="w-4 h-4 text-amber-400" />
                 <span>频道长期备注</span>
                 <span className="text-[11px] text-slate-400 font-normal">
-                  （与单次击杀备注分离，仅管理员可修改）
+                  （与单次击杀备注分离，所有登录玩家均可添加、修改或清空）
                 </span>
               </div>
-              {currentUser?.role === 'admin' && !editNoteMode && (
+              {currentUser && !editNoteMode && (
                 <button
-                  onClick={() => setEditNoteMode(true)}
-                  className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium"
+                  onClick={() => {
+                    setNewNoteVal(channelNote);
+                    setEditNoteMode(true);
+                  }}
+                  className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium cursor-pointer"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
-                  <span>编辑长期备注</span>
+                  <span>{channelNote ? '修改长期备注' : '+ 添加长期备注'}</span>
                 </button>
               )}
             </div>
@@ -231,18 +234,40 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
                   type="text"
                   value={newNoteVal}
                   onChange={(e) => setNewNoteVal(e.target.value)}
-                  placeholder="输入频道长期备注（如：公会固定蹲守线）..."
+                  placeholder="输入频道长期备注（如：公会固定蹲守线、小号放龙）..."
                   className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
                 />
                 <button
                   onClick={handleSaveNote}
-                  className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-semibold"
+                  className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-semibold cursor-pointer shrink-0"
                 >
                   保存
                 </button>
+                {channelNote && (
+                  <button
+                    onClick={async () => {
+                      setNewNoteVal('');
+                      try {
+                        await api.updateChannelNote(channelNo, '');
+                        setChannelNote('');
+                        setEditNoteMode(false);
+                        setSuccessMsg('已成功清空频道长期备注');
+                        onRefreshChannels();
+                      } catch (err: any) {
+                        setErrorMsg(err.message || '清空失败');
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/80 text-rose-300 rounded-lg font-medium cursor-pointer shrink-0"
+                  >
+                    清空
+                  </button>
+                )}
                 <button
-                  onClick={() => setEditNoteMode(false)}
-                  className="px-3 py-1.5 bg-slate-800 text-slate-400 hover:text-slate-200 rounded-lg"
+                  onClick={() => {
+                    setNewNoteVal(channelNote);
+                    setEditNoteMode(false);
+                  }}
+                  className="px-3 py-1.5 bg-slate-800 text-slate-400 hover:text-slate-200 rounded-lg cursor-pointer shrink-0"
                 >
                   取消
                 </button>
