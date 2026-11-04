@@ -161,6 +161,15 @@ export function calculateLiveCountdown(
     };
   } else {
     const overdueSec = Math.max(0, Math.floor((nowMs - guaranteedMs) / 1000));
+    if (overdueSec >= 180 * 60) {
+      return {
+        status: 'unrecorded',
+        text: '--:--:--',
+        subText: '已超180分重置',
+        isUrgent: false,
+        remainingSeconds: undefined,
+      };
+    }
     return {
       status: 'guaranteed_reached',
       text: `+${formatDuration(overdueSec)}`,

@@ -5,6 +5,7 @@ import {
   loadDB,
   cleanupExpiredVisits,
   formatShanghai,
+  autoResetOverdueChannels,
 } from './db.ts';
 
 interface ConnectedClient {
@@ -142,6 +143,12 @@ export function broadcastChannelsUpdate(): void {
 }
 
 function broadcastClockAndCheckAlerts(now: Date): void {
+  // Auto-reset channels if overdue past guaranteed time >= 180 minutes
+  const resetCount = autoResetOverdueChannels(now);
+  if (resetCount > 0) {
+    broadcastChannelsUpdate();
+  }
+
   const nowMs = now.getTime();
   const db = loadDB();
   const reminderMinutes = db.settings.reminder_before || 5;
@@ -203,7 +210,7 @@ function broadcastClockAndCheckAlerts(now: Date): void {
 
     // 3. Reached guaranteed time
     const guaranteedKey = `${channel.channel_no}_${killId}_guaranteed`;
-    if (nowMs >= guaranteedMs) {
+    if (nowMs >= guaranteedMs && nowMs - guaranteedMs < 180 * 60 * 1000) {
       if (!triggeredAlerts.has(guaranteedKey)) {
         triggeredAlerts.add(guaranteedKey);
         broadcastAll({

@@ -231,7 +231,7 @@ export default function App() {
 
         // 3. Reached guaranteed time
         const guaranteedKey = `${ch.channel_no}_${killId}_guaranteed`;
-        if (guaranteedMs > 0 && nowMs >= guaranteedMs) {
+        if (guaranteedMs > 0 && nowMs >= guaranteedMs && nowMs - guaranteedMs < 180 * 60 * 1000) {
           if (!handledAlertsRef.current.has(guaranteedKey)) {
             handledAlertsRef.current.add(guaranteedKey);
             sound.playGuaranteedReached();

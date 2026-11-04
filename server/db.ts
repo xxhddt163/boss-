@@ -320,7 +320,72 @@ export function computeChannelStatus(
   };
 }
 
+/**
+ * Automatically reset channels if overdue past guaranteed time >= 180 minutes
+ * (所有频道中，如果超过保底时间大于等于180分钟，则重置那个对应的频道)
+ */
+export function autoResetOverdueChannels(now: Date = new Date()): number {
+  const db = loadDB();
+  const nowMs = now.getTime();
+  const OVERDUE_LIMIT_MS = 180 * 60 * 1000; // 180 minutes = 10800 seconds
+  let resetCount = 0;
+
+  for (const channel of db.channels) {
+    const latestKill = getLatestValidKill(channel.channel_no);
+    if (!latestKill || !latestKill.guaranteed_at) continue;
+
+    const guaranteedMs = new Date(latestKill.guaranteed_at).getTime();
+    if (isNaN(guaranteedMs)) continue;
+
+    if (nowMs - guaranteedMs >= OVERDUE_LIMIT_MS) {
+      const nowIso = now.toISOString();
+
+      // Void all active kill records for this channel
+      const activeKills = db.kill_records.filter(
+        (k) => k.channel_no === channel.channel_no && !k.is_void
+      );
+      for (const kill of activeKills) {
+        kill.is_void = true;
+        kill.void_reason = '超过保底时间达180分钟，系统自动重置频道';
+        kill.voided_at = nowIso;
+        kill.voided_by = '系统自动重置';
+      }
+
+      // Complete active visits on this channel
+      for (const visit of db.channel_visits) {
+        if (visit.channel_no === channel.channel_no && visit.status === 'active') {
+          visit.status = 'left';
+          visit.left_at = nowIso;
+        }
+      }
+
+      channel.version += 1;
+      channel.updated_at = nowIso;
+      channel.updated_by = '系统自动重置';
+      resetCount++;
+
+      logOperation({
+        user_id: 'system',
+        username: '系统自动重置',
+        channel_no: channel.channel_no,
+        action: 'CHANNEL_AUTO_RESET_OVERDUE_180M',
+        new_data: {
+          overdue_minutes: Math.floor((nowMs - guaranteedMs) / (60 * 1000)),
+          voided_kills_count: activeKills.length,
+        },
+      });
+    }
+  }
+
+  if (resetCount > 0) {
+    scheduleSave();
+  }
+
+  return resetCount;
+}
+
 export function getAllChannelsComputed(now: Date = new Date()): ChannelComputedView[] {
+  autoResetOverdueChannels(now);
   const db = loadDB();
   return db.channels.map((ch) => computeChannelStatus(ch, now));
 }
