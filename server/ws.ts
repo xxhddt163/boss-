@@ -224,3 +224,64 @@ function broadcastClockAndCheckAlerts(now: Date): void {
 export function getConnectedClientCount(): number {
   return clients.size;
 }
+
+export interface OnlinePlayerInfo {
+  userId?: string;
+  username: string;
+  gameId: string;
+  nickname?: string;
+  phone?: string;
+  role: string;
+  currentChannelNo?: number | null;
+  connectedAt: string;
+  isGuest: boolean;
+}
+
+export function getOnlinePlayersList(): OnlinePlayerInfo[] {
+  const db = loadDB();
+  const list: OnlinePlayerInfo[] = [];
+  const seenUsers = new Set<string>();
+
+  clients.forEach((c) => {
+    if (c.userId) {
+      if (seenUsers.has(c.userId)) return;
+      seenUsers.add(c.userId);
+
+      const dbUser = db.users.find((u) => u.id === c.userId);
+      const activeVisit = db.channel_visits.find(
+        (v) => v.user_id === c.userId && v.status === 'active'
+      );
+
+      list.push({
+        userId: c.userId,
+        username: c.username || dbUser?.username || '未知玩家',
+        gameId: c.gameId || dbUser?.game_id || '未登记',
+        nickname: dbUser?.nickname,
+        phone: dbUser?.phone,
+        role: dbUser?.role || 'player',
+        currentChannelNo: activeVisit ? activeVisit.channel_no : null,
+        connectedAt: c.connectedAt.toISOString(),
+        isGuest: false,
+      });
+    } else {
+      list.push({
+        username: '未登录访客',
+        gameId: '访客',
+        role: 'guest',
+        currentChannelNo: null,
+        connectedAt: c.connectedAt.toISOString(),
+        isGuest: true,
+      });
+    }
+  });
+
+  list.sort((a, b) => {
+    if (a.isGuest && !b.isGuest) return 1;
+    if (!a.isGuest && b.isGuest) return -1;
+    if (a.role === 'admin' && b.role !== 'admin') return -1;
+    if (a.role !== 'admin' && b.role === 'admin') return 1;
+    return (a.gameId || '').localeCompare(b.gameId || '');
+  });
+
+  return list;
+}

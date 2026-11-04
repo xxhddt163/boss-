@@ -10,6 +10,7 @@ class WebSocketClient {
   private reconnectTimer: any = null;
   private connected: boolean = false;
   private statusListeners: Set<(connected: boolean) => void> = new Set();
+  private identifiedUser: { userId: string; username: string; gameId: string } | null = null;
 
   public connect(): void {
     if (this.ws || this.isConnecting) return;
@@ -25,6 +26,7 @@ class WebSocketClient {
         this.connected = true;
         this.isConnecting = false;
         this.notifyStatus(true);
+        this.sendIdentify();
       };
 
       this.ws.onmessage = (event) => {
@@ -105,6 +107,30 @@ class WebSocketClient {
 
   public isConnected(): boolean {
     return this.connected;
+  }
+
+  public identify(user: { id: string; username: string; game_id: string } | null): void {
+    if (user) {
+      this.identifiedUser = { userId: user.id, username: user.username, gameId: user.game_id };
+    } else {
+      this.identifiedUser = null;
+    }
+    this.sendIdentify();
+  }
+
+  private sendIdentify(): void {
+    if (this.ws && this.connected && this.identifiedUser) {
+      try {
+        this.ws.send(JSON.stringify({
+          type: 'IDENTIFY',
+          userId: this.identifiedUser.userId,
+          username: this.identifiedUser.username,
+          gameId: this.identifiedUser.gameId,
+        }));
+      } catch {
+        // ignore
+      }
+    }
   }
 }
 

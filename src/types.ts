@@ -150,3 +150,16 @@ export interface KillStatsData {
   memberStats: MemberKillStat[];
 }
 
+export interface OnlinePlayerInfo {
+  userId?: string;
+  username: string;
+  gameId: string;
+  nickname?: string;
+  phone?: string;
+  role: string;
+  currentChannelNo?: number | null;
+  connectedAt: string;
+  isGuest: boolean;
+}
+
+

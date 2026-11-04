@@ -15,6 +15,7 @@ import { LoginPortal } from './components/LoginPortal.tsx';
 import { KillConfirmModal } from './components/KillConfirmModal.tsx';
 import { AdminKillStatsSection } from './components/AdminKillStatsSection.tsx';
 import { PendingApprovalModal } from './components/PendingApprovalModal.tsx';
+import { OnlinePlayersModal } from './components/OnlinePlayersModal.tsx';
 import { sound, sendDesktopNotification } from './utils/sound.ts';
 import { AlertCircle, CheckCircle, Info, RotateCcw } from 'lucide-react';
 
@@ -33,6 +34,9 @@ export default function App() {
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [pendingUsersCount, setPendingUsersCount] = useState<number>(0);
   const [pendingModalOpen, setPendingModalOpen] = useState<boolean>(false);
+
+  // Admin Online Players Modal state
+  const [onlinePlayersModalOpen, setOnlinePlayersModalOpen] = useState<boolean>(false);
 
   // Tracking alerts already announced for a specific channel and kill round
   const handledAlertsRef = React.useRef<Set<string>>(new Set());
@@ -128,6 +132,19 @@ export default function App() {
   useEffect(() => {
     channelsRef.current = channels;
   }, [channels]);
+
+  // Keep WebSocket client informed of current user identity
+  useEffect(() => {
+    if (currentUser) {
+      wsClient.identify({
+        id: currentUser.id,
+        username: currentUser.username,
+        game_id: currentUser.game_id,
+      });
+    } else {
+      wsClient.identify(null);
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     fetchInitialData();
@@ -565,6 +582,8 @@ export default function App() {
             channels={channels}
             onlineCount={onlineCount}
             wsConnected={wsConnected}
+            isAdmin={currentUser?.role === 'admin'}
+            onOpenOnlinePlayers={() => setOnlinePlayersModalOpen(true)}
           />
 
           {/* 2. Search, Filter and Sort Bar */}
@@ -750,6 +769,11 @@ export default function App() {
             fetchInitialData();
           }}
         />
+      )}
+
+      {/* Online Players Modal (Admin only) */}
+      {onlinePlayersModalOpen && currentUser?.role === 'admin' && (
+        <OnlinePlayersModal onClose={() => setOnlinePlayersModalOpen(false)} />
       )}
     </div>
   );

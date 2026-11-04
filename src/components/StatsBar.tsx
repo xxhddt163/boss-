@@ -6,9 +6,17 @@ interface StatsBarProps {
   channels: ChannelComputedView[];
   onlineCount: number;
   wsConnected: boolean;
+  isAdmin?: boolean;
+  onOpenOnlinePlayers?: () => void;
 }
 
-export const StatsBar: React.FC<StatsBarProps> = ({ channels, onlineCount, wsConnected }) => {
+export const StatsBar: React.FC<StatsBarProps> = ({
+  channels,
+  onlineCount,
+  wsConnected,
+  isAdmin = false,
+  onOpenOnlinePlayers,
+}) => {
   const total = channels.length;
   const waiting = channels.filter((c) => c.status === 'waiting_entry').length;
   const inSpawn = channels.filter((c) => c.status === 'in_spawn_window').length;
@@ -86,18 +94,31 @@ export const StatsBar: React.FC<StatsBarProps> = ({ channels, onlineCount, wsCon
         </div>
 
         {/* Online Players */}
-        <div className="col-span-2 sm:col-span-2 lg:col-span-1 flex flex-col items-center justify-center p-2 rounded-lg bg-slate-950/40 border border-slate-800/40">
+        <div
+          onClick={isAdmin ? onOpenOnlinePlayers : undefined}
+          title={isAdmin ? '点击查看当前在线玩家列表（仅管理员）' : undefined}
+          className={`col-span-2 sm:col-span-2 lg:col-span-1 flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${
+            isAdmin
+              ? 'bg-slate-950/60 border-cyan-800/60 hover:border-cyan-400 hover:bg-slate-900/90 cursor-pointer shadow-sm group active:scale-95'
+              : 'bg-slate-950/40 border-slate-800/40 cursor-default'
+          }`}
+        >
           <div className="flex items-center gap-1.5 text-xs text-slate-400">
             <span
               className={`w-2 h-2 rounded-full ${
                 wsConnected ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'
               }`}
             />
-            <span>在线玩家</span>
+            <span className={isAdmin ? 'group-hover:text-cyan-300 transition-colors' : ''}>在线玩家</span>
           </div>
           <span className="text-xl font-bold font-mono text-cyan-300 tabular-nums mt-0.5">
             {onlineCount} <span className="text-xs text-slate-400 font-sans font-normal">人</span>
           </span>
+          {isAdmin && (
+            <span className="text-[10px] text-cyan-400/80 group-hover:text-cyan-300 font-medium transition-colors mt-0.5">
+              点击查看名单
+            </span>
+          )}
         </div>
       </div>
     </section>

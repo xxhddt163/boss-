@@ -1,4 +1,4 @@
-import { User, BossConfig, ChannelComputedView, KillRecord, OperationLog, SystemSettings, KillStatsData } from '../types.ts';
+import { User, BossConfig, ChannelComputedView, KillRecord, OperationLog, SystemSettings, KillStatsData, OnlinePlayerInfo } from '../types.ts';
 
 const TOKEN_KEY = 'snowman_auth_token';
 
@@ -142,6 +142,7 @@ export const api = {
   // Admin
   getUsers: () => request<{ users: User[] }>('/api/admin/users'),
   getPendingUsers: () => request<{ count: number; users: User[] }>('/api/admin/pending-users'),
+  getOnlinePlayers: () => request<{ totalCount: number; users: OnlinePlayerInfo[] }>('/api/admin/online-players'),
   batchApproveUsers: (userIds?: string[]) =>
     request<{ success: boolean; approvedCount: number; message: string }>('/api/admin/users/batch-approve', {
       method: 'POST',
