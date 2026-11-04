@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { WheelTimePickerModal } from './WheelTimePickerModal.tsx';
+import { formatBeijingDateTime, getCurrentServerTime } from '../utils/time.ts';
 import { ChevronRight } from 'lucide-react';
 
 interface AlarmTimePickerProps {
@@ -14,12 +15,9 @@ export const AlarmTimePicker: React.FC<AlarmTimePickerProps> = ({
   label = '击杀时间',
 }) => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const pad = (n: number) => String(n).padStart(2, '0');
 
-  const date = valueIso ? new Date(valueIso) : new Date();
-  const timeDisplay = isNaN(date.getTime())
-    ? '--:--:--'
-    : `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  const date = valueIso ? new Date(valueIso) : getCurrentServerTime();
+  const timeDisplay = formatBeijingDateTime(date);
 
   return (
     <div className="space-y-1">
@@ -36,7 +34,7 @@ export const AlarmTimePicker: React.FC<AlarmTimePickerProps> = ({
 
       <WheelTimePickerModal
         isOpen={isOpen}
-        valueDate={isNaN(date.getTime()) ? new Date() : date}
+        valueDate={date}
         onClose={() => setIsOpen(false)}
         onConfirm={(newDate) => {
           onChangeIso(newDate.toISOString());

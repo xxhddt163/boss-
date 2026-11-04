@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { KillRecord, User } from '../types.ts';
 import { api } from '../services/api.ts';
-import { formatBeijing } from '../utils/time.ts';
+import { formatBeijing, getCurrentServerTime, formatBeijingDateTime } from '../utils/time.ts';
 import { WheelTimePickerModal } from './WheelTimePickerModal.tsx';
 import {
   X,
@@ -326,8 +326,8 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
             {currentUser && (
               <button
                 onClick={() => {
-                  if (!showBackfill && !bfTime) {
-                    setBfTime(new Date().toISOString());
+                  if (!showBackfill) {
+                    setBfTime(getCurrentServerTime().toISOString());
                   }
                   setShowBackfill(!showBackfill);
                 }}
@@ -348,14 +348,15 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
               <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                 <span className="font-bold text-slate-100 text-sm">手动补录历史击杀</span>
                 <span className="text-[11px] text-cyan-400 font-mono">
-                  {formatDateYmd(bfTime || new Date().toISOString())}
+                  {formatBeijing(bfTime || getCurrentServerTime()).split(' ')[0]}
                 </span>
               </div>
 
               {/* Clickable 击杀时间 row matching user screenshot */}
               <div
                 onClick={() => {
-                  setTimePickerDate(bfTime ? new Date(bfTime) : new Date());
+                  const target = bfTime ? new Date(bfTime) : getCurrentServerTime();
+                  setTimePickerDate(target);
                   setTimePickerTarget('backfill');
                 }}
                 className="flex items-center justify-between py-2.5 px-2 hover:bg-slate-900 rounded-xl cursor-pointer transition-colors border-b border-slate-800/80 group"
@@ -363,7 +364,7 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
                 <span className="text-xs font-medium text-slate-300">击杀时间</span>
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-bold font-mono text-cyan-300 tracking-wider">
-                    {formatDateTime(bfTime || new Date().toISOString())}
+                    {formatBeijingDateTime(bfTime || getCurrentServerTime())}
                   </span>
                   <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all" />
                 </div>
@@ -443,7 +444,7 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
                         <div className="flex items-center justify-between pb-1 border-b border-slate-800">
                           <span className="font-bold text-cyan-300 text-sm">编辑击杀记录</span>
                           <span className="text-[11px] text-slate-400 font-mono">
-                            {formatDateYmd(editTime || rec.killed_at)}
+                            {formatBeijing(editTime || rec.killed_at).split(' ')[0]}
                           </span>
                         </div>
 
@@ -458,7 +459,7 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
                           <span className="text-xs font-medium text-slate-300">击杀时间</span>
                           <div className="flex items-center gap-1.5">
                             <span className="text-sm font-bold font-mono text-cyan-300 tracking-wider">
-                              {formatDateTime(editTime || rec.killed_at)}
+                              {formatBeijingDateTime(editTime || rec.killed_at)}
                             </span>
                             <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all" />
                           </div>

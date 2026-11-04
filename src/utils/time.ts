@@ -35,6 +35,75 @@ export function formatBeijing(dateOrIso?: string | Date | null): string {
   }
 }
 
+// Extract Year, Month, Day, Hour, Minute, Second strictly in Asia/Shanghai timezone
+export function getBeijingParts(dateOrIso?: Date | string | null): {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+} {
+  const d = dateOrIso
+    ? typeof dateOrIso === 'string'
+      ? new Date(dateOrIso)
+      : dateOrIso
+    : getCurrentServerTime();
+
+  const validDate = isNaN(d.getTime()) ? getCurrentServerTime() : d;
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(validDate);
+  const getPart = (type: string, fallback: number) => {
+    const p = parts.find((x) => x.type === type);
+    return p ? parseInt(p.value, 10) : fallback;
+  };
+
+  const hourRaw = getPart('hour', 0);
+  const hour = hourRaw === 24 ? 0 : hourRaw;
+
+  return {
+    year: getPart('year', 2026),
+    month: getPart('month', 1),
+    day: getPart('day', 1),
+    hour,
+    minute: getPart('minute', 0),
+    second: getPart('second', 0),
+  };
+}
+
+// Create a valid Date object from Beijing Time components
+export function createDateFromBeijingParts(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  second: number
+): Date {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const isoStr = `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}:${pad(second)}+08:00`;
+  return new Date(isoStr);
+}
+
+// Format full date time in Beijing Time: YYYY-MM-DD HH:mm:ss
+export function formatBeijingDateTime(dateOrIso?: string | Date | null): string {
+  if (!dateOrIso) return '--:--:--';
+  const parts = getBeijingParts(dateOrIso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)} ${pad(parts.hour)}:${pad(parts.minute)}:${pad(parts.second)}`;
+}
+
 export function formatDuration(seconds: number): string {
   if (seconds < 0) seconds = 0;
   const h = Math.floor(seconds / 3600);
