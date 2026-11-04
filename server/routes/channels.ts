@@ -55,13 +55,16 @@ channelsRouter.post('/:channelNo/visit', (req: Request, res: Response) => {
   const db = loadDB();
   const now = new Date().toISOString();
 
-  // Rule 4.3: If user is visiting another channel, automatically leave that channel first
+  // Rule 4.3: If regular user is visiting another channel, automatically leave that channel first
+  // Note: Administrator accounts have NO upper limit on accepted orders!
   let leftOtherChannel: number | null = null;
-  for (const visit of db.channel_visits) {
-    if (visit.user_id === user.id && visit.status === 'active' && visit.channel_no !== channelNo) {
-      visit.status = 'left';
-      visit.left_at = now;
-      leftOtherChannel = visit.channel_no;
+  if (user.role !== 'admin') {
+    for (const visit of db.channel_visits) {
+      if (visit.user_id === user.id && visit.status === 'active' && visit.channel_no !== channelNo) {
+        visit.status = 'left';
+        visit.left_at = now;
+        leftOtherChannel = visit.channel_no;
+      }
     }
   }
 

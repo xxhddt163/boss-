@@ -158,6 +158,7 @@ export interface OnlinePlayerInfo {
   phone?: string;
   role: string;
   currentChannelNo?: number | null;
+  activeChannelNos?: number[];
   connectedAt: string;
   isGuest: boolean;
 }

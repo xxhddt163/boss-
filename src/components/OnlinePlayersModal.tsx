@@ -167,7 +167,10 @@ export const OnlinePlayersModal: React.FC<OnlinePlayersModalProps> = ({ onClose 
             filteredPlayers.map((player, idx) => {
               const isAdmin = player.role === 'admin';
               const isGuest = player.isGuest;
-              const hasChannel = player.currentChannelNo !== null && player.currentChannelNo !== undefined;
+              const activeChannels = player.activeChannelNos && player.activeChannelNos.length > 0
+                ? player.activeChannelNos
+                : (player.currentChannelNo ? [player.currentChannelNo] : []);
+              const hasChannel = activeChannels.length > 0;
 
               return (
                 <div
@@ -243,7 +246,12 @@ export const OnlinePlayersModal: React.FC<OnlinePlayersModalProps> = ({ onClose 
                     {hasChannel ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/80 border border-emerald-700/80 text-emerald-300 text-xs font-semibold shadow-sm">
                         <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                        <span>正在蹲守：{player.currentChannelNo} 频道</span>
+                        <span>
+                          正在蹲守：{activeChannels.join('、')} 频道
+                          {activeChannels.length > 1 && (
+                            <strong className="ml-1 text-amber-300 font-bold">({activeChannels.length}频)</strong>
+                          )}
+                        </span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800/60 text-slate-400 text-xs font-medium">

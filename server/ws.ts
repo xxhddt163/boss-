@@ -240,6 +240,7 @@ export interface OnlinePlayerInfo {
   phone?: string;
   role: string;
   currentChannelNo?: number | null;
+  activeChannelNos?: number[];
   connectedAt: string;
   isGuest: boolean;
 }
@@ -255,9 +256,10 @@ export function getOnlinePlayersList(): OnlinePlayerInfo[] {
       seenUsers.add(c.userId);
 
       const dbUser = db.users.find((u) => u.id === c.userId);
-      const activeVisit = db.channel_visits.find(
+      const activeVisits = db.channel_visits.filter(
         (v) => v.user_id === c.userId && v.status === 'active'
       );
+      const activeChannelNos = activeVisits.map((v) => v.channel_no);
 
       list.push({
         userId: c.userId,
@@ -266,7 +268,8 @@ export function getOnlinePlayersList(): OnlinePlayerInfo[] {
         nickname: dbUser?.nickname,
         phone: dbUser?.phone,
         role: dbUser?.role || 'player',
-        currentChannelNo: activeVisit ? activeVisit.channel_no : null,
+        currentChannelNo: activeChannelNos[0] ?? null,
+        activeChannelNos,
         connectedAt: c.connectedAt.toISOString(),
         isGuest: false,
       });
@@ -276,6 +279,7 @@ export function getOnlinePlayersList(): OnlinePlayerInfo[] {
         gameId: '访客',
         role: 'guest',
         currentChannelNo: null,
+        activeChannelNos: [],
         connectedAt: c.connectedAt.toISOString(),
         isGuest: true,
       });
