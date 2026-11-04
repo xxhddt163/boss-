@@ -5,7 +5,7 @@ export const ChannelTableHeader: React.FC = () => {
     <div className="sticky top-0 z-20 bg-slate-900/98 backdrop-blur-md border border-slate-800 rounded-lg px-2.5 sm:px-3.5 py-2 mb-2 shadow-md w-full min-w-[860px] text-xs font-semibold text-slate-300 select-none">
       <div className="flex items-center gap-1.5 sm:gap-2.5">
         {/* 1. 频道号 */}
-        <div className="w-16 sm:w-20 shrink-0 text-slate-300 font-bold">
+        <div className="w-18 sm:w-22 shrink-0 text-slate-300 font-bold">
           频道号
         </div>
 

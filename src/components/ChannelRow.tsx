@@ -140,10 +140,10 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
       }`}
     >
       <div className="flex items-center gap-1.5 sm:gap-2.5">
-        {/* 1. 频道号 (Column w-16 sm:w-20) */}
-        <div className="w-16 sm:w-20 shrink-0 flex items-center gap-1">
+        {/* 1. 频道号 (Column w-18 sm:w-22) */}
+        <div className="w-18 sm:w-22 shrink-0 flex items-center gap-1.5">
           <span
-            className={`text-lg sm:text-xl font-black font-mono tracking-tight tabular-nums ${
+            className={`text-2xl sm:text-[26px] font-black font-mono tracking-tight tabular-nums leading-none ${
               isMyVisiting || hasVisitors
                 ? 'text-amber-300'
                 : 'text-white'
@@ -152,7 +152,7 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
             {channel.channel_no}
           </span>
           <div className="flex flex-col">
-            <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">
+            <span className="text-[10px] font-bold text-slate-400 uppercase leading-none">
               频道
             </span>
             {isMyVisiting ? (
