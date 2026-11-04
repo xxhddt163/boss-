@@ -117,6 +117,7 @@ export interface CountdownInfo {
   text: string;
   subText: string;
   isUrgent: boolean;
+  remainingSeconds?: number;
 }
 
 export function calculateLiveCountdown(
@@ -132,6 +133,7 @@ export function calculateLiveCountdown(
       text: '--:--:--',
       subText: '暂无击杀记录',
       isUrgent: false,
+      remainingSeconds: undefined,
     };
   }
 
@@ -146,6 +148,7 @@ export function calculateLiveCountdown(
       text: formatDuration(diffSec),
       subText: '距离进刷',
       isUrgent: diffSec <= 300, // <= 5 min
+      remainingSeconds: diffSec,
     };
   } else if (nowMs < guaranteedMs) {
     const diffSec = Math.max(0, Math.floor((guaranteedMs - nowMs) / 1000));
@@ -154,6 +157,7 @@ export function calculateLiveCountdown(
       text: formatDuration(diffSec),
       subText: '距离保底',
       isUrgent: true,
+      remainingSeconds: diffSec,
     };
   } else {
     const overdueSec = Math.max(0, Math.floor((nowMs - guaranteedMs) / 1000));
@@ -162,6 +166,7 @@ export function calculateLiveCountdown(
       text: `+${formatDuration(overdueSec)}`,
       subText: '超过保底',
       isUrgent: true,
+      remainingSeconds: overdueSec,
     };
   }
 }

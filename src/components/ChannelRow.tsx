@@ -72,6 +72,38 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
   // Check if any player has accepted an order on this channel
   const hasVisitors = channel.active_visitors.length > 0;
 
+  // Waiting entry countdown color & dot based on remaining seconds:
+  // 30分-60分钟阶段: 绿色 (>= 30min, 即 >= 1800s)
+  // 10分钟-30分钟以内: 黄色 (10min ~ 30min, 即 600s <= t < 1800s)
+  // 0分钟-10分钟以内: 红色 (< 10min, 即 0s <= t < 600s)
+  const getWaitingEntryStyle = () => {
+    const sec = countdown.remainingSeconds ?? channel.remaining_seconds_entry ?? 3600;
+    if (sec >= 30 * 60) {
+      return {
+        countdownColor: 'text-emerald-400 font-bold',
+        statusDot: 'bg-emerald-400',
+        border: 'border-emerald-950/60 hover:border-emerald-800/80',
+        bg: 'bg-emerald-950/10',
+      };
+    } else if (sec >= 10 * 60) {
+      return {
+        countdownColor: 'text-yellow-400 font-bold',
+        statusDot: 'bg-yellow-400',
+        border: 'border-yellow-950/60 hover:border-yellow-800/80',
+        bg: 'bg-yellow-950/10',
+      };
+    } else {
+      return {
+        countdownColor: 'text-rose-400 font-bold animate-pulse',
+        statusDot: 'bg-rose-400 animate-pulse',
+        border: 'border-rose-950/60 hover:border-rose-800/80',
+        bg: 'bg-rose-950/15',
+      };
+    }
+  };
+
+  const waitingStyle = getWaitingEntryStyle();
+
   // Status visual configurations
   const statusStyles = {
     unrecorded: {
@@ -82,10 +114,10 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
       label: '未记录',
     },
     waiting_entry: {
-      border: 'border-sky-900/60 hover:border-sky-700/80',
-      bg: 'bg-sky-950/15',
-      countdownColor: 'text-sky-300 font-semibold',
-      statusDot: 'bg-sky-400',
+      border: waitingStyle.border,
+      bg: waitingStyle.bg,
+      countdownColor: waitingStyle.countdownColor,
+      statusDot: waitingStyle.statusDot,
       label: '等待进刷',
     },
     in_spawn_window: {

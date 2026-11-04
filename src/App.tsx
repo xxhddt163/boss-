@@ -87,9 +87,9 @@ export default function App() {
     try {
       setLoading(true);
       const res = await api.getChannels();
-      setChannels(res.channels);
-      setBossConfig(res.boss);
-      if (res.serverTime) {
+      setChannels(Array.isArray(res?.channels) ? res.channels : []);
+      if (res?.boss) setBossConfig(res.boss);
+      if (res?.serverTime) {
         setServerTimeSync(res.serverTime);
       }
 
@@ -130,7 +130,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    channelsRef.current = channels;
+    channelsRef.current = Array.isArray(channels) ? channels : [];
   }, [channels]);
 
   // Keep WebSocket client informed of current user identity
@@ -157,12 +157,12 @@ export default function App() {
 
     const unsubWs = wsClient.subscribe((payload) => {
       if (payload.type === 'INIT_STATE') {
-        if (payload.channels) setChannels(payload.channels);
+        if (Array.isArray(payload.channels)) setChannels(payload.channels);
         if (payload.boss) setBossConfig(payload.boss);
         if (payload.onlineCount !== undefined) setOnlineCount(payload.onlineCount);
         setStatsLastUpdate(Date.now());
       } else if (payload.type === 'CHANNELS_UPDATE') {
-        if (payload.channels) setChannels(payload.channels);
+        if (Array.isArray(payload.channels)) setChannels(payload.channels);
         setStatsLastUpdate(Date.now());
       } else if (payload.type === 'ONLINE_COUNT') {
         setOnlineCount(payload.count);
@@ -356,36 +356,42 @@ export default function App() {
 
   // Filter & Sort computation
   const filteredChannels = useMemo(() => {
-    let result = [...channels];
+    const list = Array.isArray(channels) ? channels : [];
+    let result = [...list];
 
     // Status filter: 已接单频道无论在哪个状态Tab中，均保持显示并置顶高亮
     if (statusFilter !== 'all') {
-      result = result.filter((c) => c.status === statusFilter || c.active_visitors.length > 0);
+      result = result.filter((c) => c && (c.status === statusFilter || (c.active_visitors && c.active_visitors.length > 0)));
     }
 
     // Has visitor filter
     if (hasVisitorFilter) {
-      result = result.filter((c) => c.active_visitors.length > 0);
+      result = result.filter((c) => c && c.active_visitors && c.active_visitors.length > 0);
     }
 
     // Has note filter
     if (hasNoteFilter) {
-      result = result.filter((c) => c.channel_note && c.channel_note.trim().length > 0);
+      result = result.filter((c) => c && c.channel_note && c.channel_note.trim().length > 0);
     }
 
     // Search query
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       result = result.filter((c) => {
+        if (!c) return false;
         const matchesNo = String(c.channel_no) === q || `${c.channel_no}频道`.includes(q);
         const matchesNote = c.channel_note && c.channel_note.toLowerCase().includes(q);
         const matchesTag = c.channel_tag && c.channel_tag.toLowerCase().includes(q);
-        const matchesVisitor = c.active_visitors.some((v) =>
-          v.game_id.toLowerCase().includes(q) || v.username.toLowerCase().includes(q)
+        const matchesVisitor = (c.active_visitors || []).some((v) =>
+          v && (
+            (v.game_id && v.game_id.toLowerCase().includes(q)) ||
+            (v.username && v.username.toLowerCase().includes(q))
+          )
         );
         const matchesLastKill =
-          c.last_kill?.game_id.toLowerCase().includes(q) || c.last_kill?.kill_note?.toLowerCase().includes(q);
-        return matchesNo || matchesNote || matchesTag || matchesVisitor || matchesLastKill;
+          (c.last_kill?.game_id && c.last_kill.game_id.toLowerCase().includes(q)) ||
+          (c.last_kill?.kill_note && c.last_kill.kill_note.toLowerCase().includes(q));
+        return Boolean(matchesNo || matchesNote || matchesTag || matchesVisitor || matchesLastKill);
       });
     }
 
@@ -394,17 +400,20 @@ export default function App() {
     // 2. All other accepted channels (ordered by other players) are ALSO pinned right below
     // 3. Un-ordered channels follow according to user's selected sortOption
     result.sort((a, b) => {
+      if (!a || !b) return 0;
+      const aVisitors = a.active_visitors || [];
+      const bVisitors = b.active_visitors || [];
       const aHasMe = currentUser
-        ? a.active_visitors.some((v) => v.user_id === currentUser.id)
+        ? aVisitors.some((v) => v && v.user_id === currentUser.id)
         : false;
       const bHasMe = currentUser
-        ? b.active_visitors.some((v) => v.user_id === currentUser.id)
+        ? bVisitors.some((v) => v && v.user_id === currentUser.id)
         : false;
       if (aHasMe && !bHasMe) return -1;
       if (!aHasMe && bHasMe) return 1;
 
-      const aHasOther = a.active_visitors.length > 0;
-      const bHasOther = b.active_visitors.length > 0;
+      const aHasOther = aVisitors.length > 0;
+      const bHasOther = bVisitors.length > 0;
       if (aHasOther && !bHasOther) return -1;
       if (!aHasOther && bHasOther) return 1;
 

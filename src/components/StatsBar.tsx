@@ -17,12 +17,13 @@ export const StatsBar: React.FC<StatsBarProps> = ({
   isAdmin = false,
   onOpenOnlinePlayers,
 }) => {
-  const total = channels.length;
-  const waiting = channels.filter((c) => c.status === 'waiting_entry').length;
-  const inSpawn = channels.filter((c) => c.status === 'in_spawn_window').length;
-  const guaranteed = channels.filter((c) => c.status === 'guaranteed_reached').length;
-  const unrecorded = channels.filter((c) => c.status === 'unrecorded').length;
-  const visitedCount = channels.filter((c) => c.active_visitors.length > 0).length;
+  const list = Array.isArray(channels) ? channels : [];
+  const total = list.length;
+  const waiting = list.filter((c) => c && c.status === 'waiting_entry').length;
+  const inSpawn = list.filter((c) => c && c.status === 'in_spawn_window').length;
+  const guaranteed = list.filter((c) => c && c.status === 'guaranteed_reached').length;
+  const unrecorded = list.filter((c) => c && c.status === 'unrecorded').length;
+  const visitedCount = list.filter((c) => c && c.active_visitors && c.active_visitors.length > 0).length;
 
   return (
     <section className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-4 my-4 shadow-sm">

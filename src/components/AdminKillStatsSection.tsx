@@ -101,7 +101,8 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
 
   // Bar chart scaling
   const maxBarCount = useMemo(() => {
-    const maxVal = Math.max(...barData.map((b) => b.count), 0);
+    const counts = (barData || []).map((b) => b?.count || 0);
+    const maxVal = counts.length > 0 ? Math.max(...counts, 0) : 0;
     return Math.max(maxVal, 6);
   }, [barData]);
 
