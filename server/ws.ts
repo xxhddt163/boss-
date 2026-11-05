@@ -197,7 +197,7 @@ function broadcastClockAndCheckAlerts(now: Date): void {
           channel_no: channel.channel_no,
           stage: 'before_entry',
           title: `${channel.channel_no}频道 即将进刷`,
-          message: `${channel.channel_no}频道 距离进刷仅剩 ${reminderMinutes} 分钟（进刷时间 ${formatShanghai(latestValid.entry_at)}）`,
+          message: `${channel.channel_no}频道 距离进入刷新时间仅剩${reminderMinutes}分钟`,
           serverTime: now.toISOString(),
         });
       }
@@ -214,8 +214,8 @@ function broadcastClockAndCheckAlerts(now: Date): void {
           kill_id: killId,
           channel_no: channel.channel_no,
           stage: 'entry_reached',
-          title: `${channel.channel_no}频道 已进入刷时间`,
-          message: `${channel.channel_no}频道 已经可以刷新，请蹲守击杀！（保底时间 ${formatShanghai(latestValid.guaranteed_at)}）`,
+          title: `${channel.channel_no}频道 已进入刷新时间`,
+          message: `${channel.channel_no}频道已经可以刷新，请蹲守击杀！`,
           serverTime: now.toISOString(),
         });
       }

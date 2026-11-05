@@ -237,18 +237,18 @@ class SoundSystem {
     }
   }
 
-  // 1. 进刷时间倒计时完毕: 女声语音播报“XX频道已进入刷时间，请注意蹲守击杀”
+  // 1. 进刷时间倒计时完毕: 女声语音播报“XX频道 已进入刷新时间：XX频道已经可以刷新，请蹲守击杀！”
   public speakEntryReached(channelNo: number): void {
     if (!this.enabled) return;
     this.playEntryReached();
-    this.speak(`${channelNo}频道已进入刷时间，请注意蹲守击杀`, true);
+    this.speak(`${channelNo}频道 已进入刷新时间：${channelNo}频道已经可以刷新，请蹲守击杀！`, true);
   }
 
-  // 2. 进刷时间倒计时仅剩5分钟: 女声语音播报“XX频道距离进入刷时间仅剩5分钟”
+  // 2. 进刷时间倒计时仅剩5分钟: 女声语音播报“XX频道 即将进刷：XX频道 距离进入刷新时间仅剩5分钟”
   public speakBeforeEntry(channelNo: number): void {
     if (!this.enabled) return;
     this.playBeforeEntry();
-    this.speak(`${channelNo}频道距离进入刷时间仅剩5分钟`, true);
+    this.speak(`${channelNo}频道 即将进刷：${channelNo}频道 距离进入刷新时间仅剩5分钟`, true);
   }
 
   // 3. 管理员登录时有待审核账号提醒: 提示音 + 女声播报

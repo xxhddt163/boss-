@@ -241,7 +241,7 @@ export default function App() {
             sendDesktopNotification(payload.title, payload.message);
           }
         }
-        showNotice('warn', `${payload.title}: ${payload.message}`);
+        showNotice('warn', `${payload.title}：${payload.message}`);
       }
     });
 
@@ -262,7 +262,7 @@ export default function App() {
         const guaranteedMs = ch.last_kill.guaranteed_at ? new Date(ch.last_kill.guaranteed_at).getTime() : 0;
         const reminderMs = 5 * 60 * 1000;
 
-        // 1. 5 minutes before entry: 女声语音播报“XX频道距离进入刷时间仅剩5分钟”
+        // 1. 5 minutes before entry: 女声语音播报“XX频道 即将进刷：XX频道 距离进入刷新时间仅剩5分钟”
         const before5mKey = `${ch.channel_no}_${killId}_before_5m`;
         if (nowMs >= entryMs - reminderMs && nowMs < entryMs) {
           if (!handledAlertsRef.current.has(before5mKey)) {
@@ -270,23 +270,23 @@ export default function App() {
             sound.speakBeforeEntry(ch.channel_no);
             sendDesktopNotification(
               `${ch.channel_no}频道 即将进刷`,
-              `${ch.channel_no}频道 距离进刷仅剩 5 分钟（进刷时间 ${ch.entry_at_display}）`
+              `${ch.channel_no}频道 距离进入刷新时间仅剩5分钟`
             );
-            showNotice('warn', `${ch.channel_no}频道 即将进刷: 距离进刷仅剩 5 分钟`);
+            showNotice('warn', `${ch.channel_no}频道 即将进刷：${ch.channel_no}频道 距离进入刷新时间仅剩5分钟`);
           }
         }
 
-        // 2. Reached entry time: 女声语音播报“XX频道已进入刷时间，请注意蹲守击杀”
+        // 2. Reached entry time: 女声语音播报“XX频道 已进入刷新时间：XX频道已经可以刷新，请蹲守击杀！”
         const entryKey = `${ch.channel_no}_${killId}_entry`;
         if (nowMs >= entryMs && (guaranteedMs === 0 || nowMs < guaranteedMs)) {
           if (!handledAlertsRef.current.has(entryKey)) {
             handledAlertsRef.current.add(entryKey);
             sound.speakEntryReached(ch.channel_no);
             sendDesktopNotification(
-              `${ch.channel_no}频道 已进入刷时间`,
-              `${ch.channel_no}频道 已经可以刷新，请蹲守击杀！`
+              `${ch.channel_no}频道 已进入刷新时间`,
+              `${ch.channel_no}频道已经可以刷新，请蹲守击杀！`
             );
-            showNotice('warn', `${ch.channel_no}频道 已进入刷时间: 请注意蹲守击杀！`);
+            showNotice('warn', `${ch.channel_no}频道 已进入刷新时间：${ch.channel_no}频道已经可以刷新，请蹲守击杀！`);
           }
         }
 
