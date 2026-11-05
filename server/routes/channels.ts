@@ -264,6 +264,7 @@ channelsRouter.post('/:channelNo/kill', (req: Request, res: Response) => {
   // Update channel version
   const channel = db.channels.find((c) => c.channel_no === channelNo);
   if (channel) {
+    channel.reset_at = undefined;
     channel.version += 1;
     channel.updated_at = serverNowIso;
     channel.updated_by = user.username;
@@ -345,6 +346,7 @@ channelsRouter.post('/:channelNo/backfill', (req: Request, res: Response) => {
 
   const channel = db.channels.find((c) => c.channel_no === channelNo);
   if (channel) {
+    channel.reset_at = undefined;
     channel.version += 1;
     channel.updated_at = now;
     channel.updated_by = user.username;
@@ -637,15 +639,9 @@ channelsRouter.post('/:channelNo/reset', (req: Request, res: Response) => {
 
   const now = new Date().toISOString();
 
-  // Void all active kill records for this channel so time information initializes to empty (--:--:--)
-  const activeKills = db.kill_records.filter((k) => k.channel_no === channelNo && !k.is_void);
-  for (const kill of activeKills) {
-    kill.is_void = true;
-    kill.void_reason = `管理员(${user.username})重置频道时间`;
-    kill.voided_at = now;
-    kill.voided_by = user.username;
-  }
-
+  // Reset channel time to empty without voiding records or kicking visitors
+  channel.reset_at = now;
+  channel.channel_tag = '';
   channel.version += 1;
   channel.updated_at = now;
   channel.updated_by = user.username;
@@ -657,7 +653,10 @@ channelsRouter.post('/:channelNo/reset', (req: Request, res: Response) => {
     username: user.username,
     channel_no: channelNo,
     action: 'CHANNEL_RESET_TIMES',
-    new_data: { voided_kills_count: activeKills.length },
+    new_data: {
+      reset_at: now,
+      note: '管理员重置：时间初始化为空，接单人员保留，历史击杀不作废，标签清空',
+    },
   });
 
   broadcastChannelsUpdate();

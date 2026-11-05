@@ -32,6 +32,7 @@ export interface Channel {
   boss_id: string;
   channel_note: string; // Long-term note
   channel_tag?: string; // Tag: 护食 / 不抢怪 / 龙骑很强
+  reset_at?: string; // ISO UTC - when channel timing was reset to empty
   version: number;
   updated_at: string;
   updated_by: string;

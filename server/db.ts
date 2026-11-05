@@ -220,8 +220,14 @@ export function formatDuration(seconds: number): string {
 
 export function getLatestValidKill(channelNo: number): KillRecord | null {
   const db = loadDB();
+  const channel = db.channels.find((c) => c.channel_no === channelNo);
+  const resetMs = channel?.reset_at ? new Date(channel.reset_at).getTime() : 0;
+
   const validKills = db.kill_records.filter(
-    (k) => k.channel_no === channelNo && !k.is_void
+    (k) =>
+      k.channel_no === channelNo &&
+      !k.is_void &&
+      (resetMs === 0 || new Date(k.created_at).getTime() > resetMs)
   );
   if (validKills.length === 0) return null;
 
@@ -322,7 +328,11 @@ export function computeChannelStatus(
 
 /**
  * Automatically reset channels if overdue past guaranteed time >= 180 minutes
- * (所有频道中，如果超过保底时间大于等于180分钟，则重置那个对应的频道)
+ * Refined rule:
+ * 1. Channel timing initialized to empty (--:--:--) via reset_at
+ * 2. Active orders/visitors do NOT auto-leave (stationed players stay)
+ * 3. Previous kill records are NOT voided or cleared
+ * 4. Channel tag is reset to empty (无)
  */
 export function autoResetOverdueChannels(now: Date = new Date()): number {
   const db = loadDB();
@@ -340,28 +350,18 @@ export function autoResetOverdueChannels(now: Date = new Date()): number {
     if (nowMs - guaranteedMs >= OVERDUE_LIMIT_MS) {
       const nowIso = now.toISOString();
 
-      // Void all active kill records for this channel
-      const activeKills = db.kill_records.filter(
-        (k) => k.channel_no === channel.channel_no && !k.is_void
-      );
-      for (const kill of activeKills) {
-        kill.is_void = true;
-        kill.void_reason = '超过保底时间达180分钟，系统自动重置频道';
-        kill.voided_at = nowIso;
-        kill.voided_by = '系统自动重置';
-      }
-
-      // Complete active visits on this channel
-      for (const visit of db.channel_visits) {
-        if (visit.channel_no === channel.channel_no && visit.status === 'active') {
-          visit.status = 'left';
-          visit.left_at = nowIso;
-        }
-      }
-
+      // 1. Channel time initialized to empty (--:--:--)
+      channel.reset_at = nowIso;
+      // 2. Channel tag reset to empty
+      channel.channel_tag = '';
       channel.version += 1;
       channel.updated_at = nowIso;
       channel.updated_by = '系统自动重置';
+
+      // NOTE:
+      // - Active visitors in db.channel_visits remain active (do not auto-leave)
+      // - Kill records in db.kill_records are NOT voided (history & stats preserved)
+
       resetCount++;
 
       logOperation({
@@ -371,7 +371,8 @@ export function autoResetOverdueChannels(now: Date = new Date()): number {
         action: 'CHANNEL_AUTO_RESET_OVERDUE_180M',
         new_data: {
           overdue_minutes: Math.floor((nowMs - guaranteedMs) / (60 * 1000)),
-          voided_kills_count: activeKills.length,
+          reset_at: nowIso,
+          note: '超过保底180分钟自动重置：时间初始化为空，接单人员保留，历史击杀不作废，标签清空',
         },
       });
     }

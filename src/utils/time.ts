@@ -165,7 +165,7 @@ export function calculateLiveCountdown(
       return {
         status: 'unrecorded',
         text: '--:--:--',
-        subText: '已超180分重置',
+        subText: '暂无击杀记录',
         isUrgent: false,
         remainingSeconds: undefined,
       };

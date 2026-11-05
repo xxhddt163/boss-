@@ -6,6 +6,7 @@ import {
   cleanupExpiredVisits,
   formatShanghai,
   autoResetOverdueChannels,
+  getLatestValidKill,
 } from './db.ts';
 
 interface ConnectedClient {
@@ -162,9 +163,7 @@ function broadcastClockAndCheckAlerts(now: Date): void {
 
   // Check alerts
   for (const channel of db.channels) {
-    const latestValid = db.kill_records
-      .filter((k) => k.channel_no === channel.channel_no && !k.is_void)
-      .sort((a, b) => new Date(b.killed_at).getTime() - new Date(a.killed_at).getTime())[0];
+    const latestValid = getLatestValidKill(channel.channel_no);
 
     if (!latestValid) continue;
 
