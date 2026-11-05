@@ -48,6 +48,7 @@ export default function App() {
   // Tracking alerts already announced for a specific channel and kill round
   const handledAlertsRef = React.useRef<Set<string>>(new Set());
   const channelsRef = React.useRef<ChannelComputedView[]>([]);
+  const currentUserRef = React.useRef<User | null>(null);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -163,6 +164,7 @@ export default function App() {
   }, [channels, bossConfig]);
 
   useEffect(() => {
+    currentUserRef.current = currentUser;
     if (currentUser) {
       saveOfflineUserCache(currentUser);
     }
@@ -224,6 +226,7 @@ export default function App() {
       } else if (payload.type === 'CLOCK_TICK') {
         // Ticked from server
       } else if (payload.type === 'BOSS_ALERT') {
+        if (!currentUserRef.current) return;
         const key = payload.alert_key || `${payload.channel_no}_${payload.kill_id || ''}_${payload.stage}`;
         if (!handledAlertsRef.current.has(key)) {
           handledAlertsRef.current.add(key);
@@ -247,6 +250,9 @@ export default function App() {
       const now = getCurrentServerTime();
       setServerTime(now);
       const nowMs = now.getTime();
+
+      // Only logged-in users receive boss spawn alerts
+      if (!currentUserRef.current) return;
 
       // Check transitions locally to guarantee female voice broadcast fires promptly even if WS drops momentarily
       channelsRef.current.forEach((ch) => {

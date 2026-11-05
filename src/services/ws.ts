@@ -37,6 +37,7 @@ class WebSocketClient {
           }
 
           if (data.type === 'BOSS_ALERT') {
+            if (!this.identifiedUser) return;
             if (data.stage === 'before_entry') {
               sound.playBeforeEntry();
             } else if (data.stage === 'entry_reached') {

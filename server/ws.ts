@@ -127,6 +127,19 @@ export function broadcastAll(payload: any): void {
   }
 }
 
+export function broadcastAuthenticated(payload: any): void {
+  const json = JSON.stringify(payload);
+  for (const client of clients) {
+    if (client.userId && client.ws.readyState === WebSocket.OPEN) {
+      try {
+        client.ws.send(json);
+      } catch (e) {
+        // ignore
+      }
+    }
+  }
+}
+
 export function broadcastOnlineCount(): void {
   broadcastAll({
     type: 'ONLINE_COUNT',
@@ -177,7 +190,7 @@ function broadcastClockAndCheckAlerts(now: Date): void {
     if (nowMs >= entryMs - reminderMs && nowMs < entryMs) {
       if (!triggeredAlerts.has(before5mKey)) {
         triggeredAlerts.add(before5mKey);
-        broadcastAll({
+        broadcastAuthenticated({
           type: 'BOSS_ALERT',
           alert_key: before5mKey,
           kill_id: killId,
@@ -195,7 +208,7 @@ function broadcastClockAndCheckAlerts(now: Date): void {
     if (nowMs >= entryMs && nowMs < guaranteedMs) {
       if (!triggeredAlerts.has(entryKey)) {
         triggeredAlerts.add(entryKey);
-        broadcastAll({
+        broadcastAuthenticated({
           type: 'BOSS_ALERT',
           alert_key: entryKey,
           kill_id: killId,
@@ -213,7 +226,7 @@ function broadcastClockAndCheckAlerts(now: Date): void {
     if (nowMs >= guaranteedMs && nowMs - guaranteedMs < 180 * 60 * 1000) {
       if (!triggeredAlerts.has(guaranteedKey)) {
         triggeredAlerts.add(guaranteedKey);
-        broadcastAll({
+        broadcastAuthenticated({
           type: 'BOSS_ALERT',
           alert_key: guaranteedKey,
           kill_id: killId,
