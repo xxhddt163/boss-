@@ -16,8 +16,10 @@ import { KillConfirmModal } from './components/KillConfirmModal.tsx';
 import { AdminKillStatsSection } from './components/AdminKillStatsSection.tsx';
 import { PendingApprovalModal } from './components/PendingApprovalModal.tsx';
 import { OnlinePlayersModal } from './components/OnlinePlayersModal.tsx';
+import { LeaveReasonModal } from './components/LeaveReasonModal.tsx';
+import { LeaveReasonsAdminModal } from './components/LeaveReasonsAdminModal.tsx';
 import { sound, sendDesktopNotification } from './utils/sound.ts';
-import { AlertCircle, CheckCircle, Info, RotateCcw, Download, WifiOff } from 'lucide-react';
+import { AlertCircle, CheckCircle, Info, RotateCcw, Download, WifiOff, MessageSquareWarning } from 'lucide-react';
 import {
   exportChannelsToCSV,
   saveOfflineChannelsCache,
@@ -64,6 +66,8 @@ export default function App() {
   const [historyChannelNo, setHistoryChannelNo] = useState<number | null>(null);
   const [confirmKillChannelNo, setConfirmKillChannelNo] = useState<number | null>(null);
   const [resetConfirmChannelNo, setResetConfirmChannelNo] = useState<number | null>(null);
+  const [leaveModalChannelNo, setLeaveModalChannelNo] = useState<number | null>(null);
+  const [leaveReasonsAdminModalOpen, setLeaveReasonsAdminModalOpen] = useState<boolean>(false);
 
   // Notification banners (e.g. concurrent kill click alert)
   const [bannerNotice, setBannerNotice] = useState<{ type: 'info' | 'success' | 'warn'; message: string } | null>(null);
@@ -332,12 +336,20 @@ export default function App() {
     }
   };
 
-  const handleLeave = async (channelNo: number) => {
+  const handleLeave = (channelNo: number) => {
+    if (!currentUser) return;
+    sound.playClick();
+    setLeaveModalChannelNo(channelNo);
+  };
+
+  const handleConfirmLeave = async (reason: string) => {
+    if (leaveModalChannelNo === null) return;
     try {
       setActionLoading(true);
       sound.playClick();
-      await api.leaveChannel(channelNo);
-      showNotice('info', `已退单 ${channelNo} 频道并清除登记`);
+      await api.leaveChannel(leaveModalChannelNo, reason);
+      showNotice('info', `已退单 ${leaveModalChannelNo} 频道（退单理由：${reason}）`);
+      setLeaveModalChannelNo(null);
     } catch (err: any) {
       showNotice('warn', err.message || '退单失败');
     } finally {
@@ -632,7 +644,17 @@ export default function App() {
               </div>
 
               {currentUser.role === 'admin' && (
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      setLeaveReasonsAdminModalOpen(true);
+                    }}
+                    className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-amber-950/80 hover:bg-amber-900/80 border border-amber-700/80 text-amber-300 transition-colors flex items-center gap-1.5 active:scale-95 shadow-sm cursor-pointer"
+                  >
+                    <MessageSquareWarning className="w-3.5 h-3.5 text-amber-400" />
+                    <span>退单理由记录</span>
+                  </button>
                   <button
                     onClick={() => setAdminModalOpen(true)}
                     className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-cyan-950/80 hover:bg-cyan-900/80 border border-cyan-800 text-cyan-300 transition-colors flex items-center gap-1.5 active:scale-95 shadow-sm cursor-pointer"
@@ -708,19 +730,35 @@ export default function App() {
 
           {/* 3. Channel Rows List with Frozen Sticky Table Header */}
           <div className="mt-4">
-            <div className="flex items-center justify-between text-xs text-slate-400 px-1 pb-2">
+            <div className="flex items-center justify-between text-xs text-slate-400 px-1 pb-2 flex-wrap gap-2">
               <span>
                 显示频道：<strong className="text-white font-mono">{filteredChannels.length}</strong> / 60
               </span>
-              <button
-                type="button"
-                onClick={handleExportChannels}
-                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-xs"
-                title="导出当前各频道时间信息为表格（纯本地运行，即使断网或服务器宕机也可随时下载）"
-              >
-                <Download className="w-3.5 h-3.5 text-emerald-400" />
-                <span>导出当前频道时间表 (.csv)</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {currentUser.role === 'admin' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      setLeaveReasonsAdminModalOpen(true);
+                    }}
+                    className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-950/80 hover:bg-amber-900/80 text-amber-200 border border-amber-700/80 hover:border-amber-600 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-xs"
+                    title="查看所有频道与角色的退单理由日志及按角色名字汇总的退单次数（仅管理员可见）"
+                  >
+                    <MessageSquareWarning className="w-3.5 h-3.5 text-amber-400" />
+                    <span>退单理由记录</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleExportChannels}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-xs"
+                  title="导出当前各频道时间信息为表格（纯本地运行，即使断网或服务器宕机也可随时下载）"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>导出当前频道时间表 (.csv)</span>
+                </button>
+              </div>
             </div>
 
             {loading ? (
@@ -889,6 +927,22 @@ export default function App() {
       {/* Online Players Modal (Admin only) */}
       {onlinePlayersModalOpen && currentUser?.role === 'admin' && (
         <OnlinePlayersModal onClose={() => setOnlinePlayersModalOpen(false)} />
+      )}
+
+      {/* Leave Reason Modal (Required when a player or admin clicks 退单) */}
+      {leaveModalChannelNo !== null && currentUser && (
+        <LeaveReasonModal
+          channelNo={leaveModalChannelNo}
+          gameId={currentUser.game_id}
+          loading={actionLoading}
+          onConfirm={handleConfirmLeave}
+          onCancel={() => setLeaveModalChannelNo(null)}
+        />
+      )}
+
+      {/* Leave Reasons Admin Log & Summary Modal (Admin only) */}
+      {leaveReasonsAdminModalOpen && currentUser?.role === 'admin' && (
+        <LeaveReasonsAdminModal onClose={() => setLeaveReasonsAdminModalOpen(false)} />
       )}
     </div>
   );

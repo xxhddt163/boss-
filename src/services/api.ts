@@ -1,4 +1,4 @@
-import { User, BossConfig, ChannelComputedView, KillRecord, OperationLog, SystemSettings, KillStatsData, OnlinePlayerInfo } from '../types.ts';
+import { User, BossConfig, ChannelComputedView, KillRecord, OperationLog, SystemSettings, KillStatsData, OnlinePlayerInfo, LeaveReasonRecord, RoleLeaveSummary } from '../types.ts';
 
 const TOKEN_KEY = 'snowman_auth_token';
 
@@ -78,9 +78,11 @@ export const api = {
     leftOtherChannel: number | null;
   }>(`/api/channels/${channelNo}/visit`, { method: 'POST' }),
 
-  leaveChannel: (channelNo: number) => request<{ success: boolean }>(`/api/channels/${channelNo}/leave`, {
-    method: 'POST',
-  }),
+  leaveChannel: (channelNo: number, leave_reason: string) =>
+    request<{ success: boolean }>(`/api/channels/${channelNo}/leave`, {
+      method: 'POST',
+      body: JSON.stringify({ leave_reason }),
+    }),
 
   recordKill: (channelNo: number, kill_note?: string) => request<{
     success: boolean;
@@ -143,6 +145,10 @@ export const api = {
   getUsers: () => request<{ users: User[] }>('/api/admin/users'),
   getPendingUsers: () => request<{ count: number; users: User[] }>('/api/admin/pending-users'),
   getOnlinePlayers: () => request<{ totalCount: number; users: OnlinePlayerInfo[] }>('/api/admin/online-players'),
+  getLeaveReasons: () =>
+    request<{ totalCount: number; records: LeaveReasonRecord[]; roleSummary: RoleLeaveSummary[] }>(
+      '/api/admin/leave-reasons'
+    ),
   batchApproveUsers: (userIds?: string[]) =>
     request<{ success: boolean; approvedCount: number; message: string }>('/api/admin/users/batch-approve', {
       method: 'POST',

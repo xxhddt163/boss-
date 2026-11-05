@@ -381,17 +381,30 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
               onClick={() => onLeave(channel.channel_no)}
               disabled={isActionLoading}
               className="px-2.5 py-1 text-xs font-black text-amber-950 bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 border border-amber-300 rounded-lg transition-all flex items-center gap-1 shadow-md active:scale-95 cursor-pointer shrink-0"
-              title="您已接单此频道，点击退单"
+              title="您已接单此频道，点击填写退单理由并退单"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>退单</span>
+            </button>
+          ) : hasVisitors && currentUser?.role !== 'admin' ? (
+            <button
+              disabled
+              className="px-2.5 py-1 text-xs font-bold text-slate-500 bg-slate-900/90 border border-slate-800 rounded-lg flex items-center gap-1 cursor-not-allowed opacity-50 shrink-0"
+              title={`该频道已有玩家【${channel.active_visitors.map((v) => v.game_id).join('、')}】接单，不可重复接单`}
+            >
+              <LogIn className="w-3.5 h-3.5 text-slate-600" />
+              <span>已接单</span>
             </button>
           ) : (
             <button
               onClick={() => onVisit(channel.channel_no)}
               disabled={isActionLoading}
               className="px-2.5 py-1 text-xs font-bold text-cyan-200 bg-cyan-950/90 hover:bg-cyan-900 border border-cyan-600 rounded-lg transition-colors flex items-center gap-1 active:scale-95 shadow-md cursor-pointer shrink-0"
-              title="接单此频道以获得击杀权限并自动登记游戏ID"
+              title={
+                hasVisitors && currentUser?.role === 'admin'
+                  ? '【管理员特权】可协同接单此频道'
+                  : '接单此频道以获得击杀权限并自动登记游戏ID'
+              }
             >
               <LogIn className="w-3.5 h-3.5 text-cyan-400" />
               <span>接单</span>

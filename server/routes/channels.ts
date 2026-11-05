@@ -55,6 +55,18 @@ channelsRouter.post('/:channelNo/visit', (req: Request, res: Response) => {
   const db = loadDB();
   const now = new Date().toISOString();
 
+  // Rule 1: 当一个频道已经有人接单后，别人就不能再接单（管理员除外，管理员就按照之前的逻辑）
+  if (user.role !== 'admin') {
+    const occupiedByOther = db.channel_visits.find(
+      (v) => v.channel_no === channelNo && v.status === 'active' && v.user_id !== user.id
+    );
+    if (occupiedByOther) {
+      return res.status(403).json({
+        error: `该频道已有玩家【${occupiedByOther.game_id}】接单蹲守，其他人不能再接单！`,
+      });
+    }
+  }
+
   // Rule 4.3: If regular user is visiting another channel, automatically leave that channel first
   // Note: Administrator accounts have NO upper limit on accepted orders!
   let leftOtherChannel: number | null = null;
@@ -112,7 +124,7 @@ channelsRouter.post('/:channelNo/visit', (req: Request, res: Response) => {
   });
 });
 
-// 3. Leave a channel
+// 3. Leave a channel (requires leave_reason)
 channelsRouter.post('/:channelNo/leave', (req: Request, res: Response) => {
   const channelNo = parseInt(req.params.channelNo, 10);
   const user = getAuthUser(req);
@@ -120,14 +132,22 @@ channelsRouter.post('/:channelNo/leave', (req: Request, res: Response) => {
     return res.status(401).json({ error: '未登录' });
   }
 
+  const leaveReason = (req.body?.leave_reason || req.body?.reason || '').trim();
+  if (!leaveReason) {
+    return res.status(400).json({ error: '请填写退单理由后再确认退单！' });
+  }
+
   const db = loadDB();
   const now = new Date().toISOString();
   let leftAny = false;
+  let joinedAt: string | undefined;
 
   for (const visit of db.channel_visits) {
     if (visit.channel_no === channelNo && visit.user_id === user.id && visit.status === 'active') {
       visit.status = 'left';
       visit.left_at = now;
+      visit.leave_reason = leaveReason;
+      joinedAt = visit.joined_at;
       leftAny = true;
     }
   }
@@ -139,6 +159,14 @@ channelsRouter.post('/:channelNo/leave', (req: Request, res: Response) => {
       username: user.username,
       channel_no: channelNo,
       action: 'CHANNEL_LEAVE',
+      new_data: {
+        channel_no: channelNo,
+        game_id: user.game_id,
+        username: user.username,
+        leave_reason: leaveReason,
+        joined_at: joinedAt,
+        left_at: now,
+      },
     });
     broadcastChannelsUpdate();
   }

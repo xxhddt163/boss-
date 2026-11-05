@@ -67,6 +67,7 @@ export interface ChannelVisit {
   joined_at: string;
   last_heartbeat_at: string;
   left_at?: string;
+  leave_reason?: string;
   status: 'active' | 'left' | 'expired';
 }
 

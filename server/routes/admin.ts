@@ -139,6 +139,83 @@ adminRouter.get('/online-players', (req: Request, res: Response) => {
   });
 });
 
+// 1.4 Get leave reason logs and role leave count summaries (Admin only)
+adminRouter.get('/leave-reasons', (req: Request, res: Response) => {
+  const admin = requireAdmin(req, res);
+  if (!admin) return;
+
+  const db = loadDB();
+
+  // Collect leave records from channel_visits that have a leave_reason
+  const records = db.channel_visits
+    .filter((v) => v.status === 'left' && v.leave_reason && v.leave_reason.trim().length > 0)
+    .map((v) => {
+      const dbUser = db.users.find((u) => u.id === v.user_id);
+      return {
+        id: v.id,
+        channel_no: v.channel_no,
+        user_id: v.user_id,
+        username: v.username || dbUser?.username || '未知账号',
+        game_id: v.game_id || dbUser?.game_id || v.username || '未知角色',
+        leave_reason: v.leave_reason || '',
+        joined_at: v.joined_at,
+        left_at: v.left_at || v.last_heartbeat_at || v.joined_at,
+      };
+    })
+    .sort((a, b) => new Date(b.left_at).getTime() - new Date(a.left_at).getTime());
+
+  // Summarize by role (game_id)
+  const roleMap = new Map<
+    string,
+    {
+      user_id?: string;
+      game_id: string;
+      username: string;
+      leaveCount: number;
+      lastLeftAt: string;
+      channelsSet: Set<number>;
+    }
+  >();
+
+  for (const r of records) {
+    const key = r.game_id;
+    const existing = roleMap.get(key);
+    if (existing) {
+      existing.leaveCount += 1;
+      existing.channelsSet.add(r.channel_no);
+      if (new Date(r.left_at).getTime() > new Date(existing.lastLeftAt).getTime()) {
+        existing.lastLeftAt = r.left_at;
+      }
+    } else {
+      roleMap.set(key, {
+        user_id: r.user_id,
+        game_id: r.game_id,
+        username: r.username,
+        leaveCount: 1,
+        lastLeftAt: r.left_at,
+        channelsSet: new Set([r.channel_no]),
+      });
+    }
+  }
+
+  const roleSummary = Array.from(roleMap.values())
+    .map((item) => ({
+      user_id: item.user_id,
+      game_id: item.game_id,
+      username: item.username,
+      leaveCount: item.leaveCount,
+      lastLeftAt: item.lastLeftAt,
+      channels: Array.from(item.channelsSet).sort((a, b) => a - b),
+    }))
+    .sort((a, b) => b.leaveCount - a.leaveCount);
+
+  res.json({
+    totalCount: records.length,
+    records,
+    roleSummary,
+  });
+});
+
 // 2. Change user status (approve / disable)
 adminRouter.post('/users/:userId/status', (req: Request, res: Response) => {
   const admin = requireAdmin(req, res);

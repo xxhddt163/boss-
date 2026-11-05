@@ -165,4 +165,25 @@ export interface OnlinePlayerInfo {
   connectionsCount?: number;
 }
 
+export interface LeaveReasonRecord {
+  id: string;
+  channel_no: number;
+  user_id: string;
+  username: string;
+  game_id: string;
+  leave_reason: string;
+  joined_at?: string;
+  left_at: string;
+}
+
+export interface RoleLeaveSummary {
+  user_id?: string;
+  game_id: string;
+  username: string;
+  leaveCount: number;
+  lastLeftAt: string;
+  channels: number[];
+}
+
+
 
