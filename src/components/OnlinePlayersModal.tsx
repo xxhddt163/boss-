@@ -224,6 +224,14 @@ export const OnlinePlayersModal: React.FC<OnlinePlayersModalProps> = ({ onClose 
                         >
                           {isAdmin ? '管理员' : isGuest ? '访客' : '玩家'}
                         </span>
+                        {player.connectionsCount && player.connectionsCount > 1 && (
+                          <span
+                            className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-950/70 border border-amber-800/80 text-amber-300 shadow-xs"
+                            title={`该账号当前共建立了 ${player.connectionsCount} 个浏览器标签/设备连接`}
+                          >
+                            {player.connectionsCount}端在线
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-4 text-xs text-slate-400 flex-wrap">

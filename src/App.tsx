@@ -17,7 +17,14 @@ import { AdminKillStatsSection } from './components/AdminKillStatsSection.tsx';
 import { PendingApprovalModal } from './components/PendingApprovalModal.tsx';
 import { OnlinePlayersModal } from './components/OnlinePlayersModal.tsx';
 import { sound, sendDesktopNotification } from './utils/sound.ts';
-import { AlertCircle, CheckCircle, Info, RotateCcw } from 'lucide-react';
+import { AlertCircle, CheckCircle, Info, RotateCcw, Download, WifiOff } from 'lucide-react';
+import {
+  exportChannelsToCSV,
+  saveOfflineChannelsCache,
+  loadOfflineChannelsCache,
+  saveOfflineUserCache,
+  loadOfflineUserCache,
+} from './utils/exportChannels.ts';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -117,13 +124,32 @@ export default function App() {
               checkPendingUsers(true);
             }
           }
-        } catch {
-          setStoredToken(null);
-          setCurrentUser(null);
+        } catch (authErr: any) {
+          if (authErr?.status === 401 || (authErr?.message && authErr.message.includes('401'))) {
+            setStoredToken(null);
+            setCurrentUser(null);
+            saveOfflineUserCache(null);
+          } else {
+            // Keep cached user on network error
+            const cachedUser = loadOfflineUserCache();
+            if (cachedUser) {
+              setCurrentUser(cachedUser);
+            }
+          }
         }
       }
     } catch (err: any) {
-      console.error('Initial fetch failed', err);
+      console.warn('Initial fetch failed, restoring offline disaster-recovery cache...', err);
+      const offlineCache = loadOfflineChannelsCache();
+      if (offlineCache && offlineCache.channels.length > 0) {
+        setChannels(offlineCache.channels);
+        if (offlineCache.boss) setBossConfig(offlineCache.boss);
+        showNotice('warn', `已启用本地离线容灾快照（${offlineCache.savedAt.slice(0, 19).replace('T', ' ')}）`);
+      }
+      const cachedUser = loadOfflineUserCache();
+      if (cachedUser) {
+        setCurrentUser(cachedUser);
+      }
     } finally {
       setLoading(false);
     }
@@ -131,7 +157,36 @@ export default function App() {
 
   useEffect(() => {
     channelsRef.current = Array.isArray(channels) ? channels : [];
-  }, [channels]);
+    if (channels && channels.length > 0) {
+      saveOfflineChannelsCache(channels, bossConfig);
+    }
+  }, [channels, bossConfig]);
+
+  useEffect(() => {
+    if (currentUser) {
+      saveOfflineUserCache(currentUser);
+    }
+  }, [currentUser]);
+
+  // Client-side direct export (100% offline-ready)
+  const handleExportChannels = () => {
+    sound.playClick();
+    try {
+      const activeChannels = channels.length > 0 ? channels : (loadOfflineChannelsCache()?.channels || []);
+      if (!activeChannels || activeChannels.length === 0) {
+        showNotice('warn', '本地暂无可导出的频道数据');
+        return;
+      }
+      const result = exportChannelsToCSV(
+        activeChannels,
+        bossConfig?.boss_name || '驮狼雪人',
+        !wsConnected
+      );
+      showNotice('success', `已成功导出 ${result.rowCount} 个频道的完整时间表格（${result.filename}）！`);
+    } catch (err: any) {
+      showNotice('warn', err.message || '导出表格失败');
+    }
+  };
 
   // Keep WebSocket client informed of current user identity
   useEffect(() => {
@@ -517,6 +572,42 @@ export default function App() {
         />
       ) : (
         <main className="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-4 lg:px-6 py-4">
+          {/* Server Disconnected / Disaster Recovery Offline Banner */}
+          {!wsConnected && (
+            <div className="mb-4 bg-gradient-to-r from-rose-950/90 via-slate-900 to-amber-950/80 border border-rose-500/60 rounded-xl p-3.5 sm:p-4 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+                  <WifiOff className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-bold text-rose-300">服务器连接已断开 / 离线容灾保护中</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-rose-900/60 text-rose-300 border border-rose-700">
+                      自动重连中...
+                    </span>
+                    <span className="text-[10px] text-amber-300 bg-amber-950/80 border border-amber-800/80 px-2 py-0.5 rounded-full">
+                      本地数据快照已就绪
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-1">
+                    当前频道的最新时间与人员数据已安全保存在浏览器本地，您可以随时直接将各频道数据导出为 Excel/CSV 表格备查！
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <button
+                  type="button"
+                  onClick={handleExportChannels}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg flex items-center gap-2 transition-all cursor-pointer active:scale-95 hover:shadow-emerald-500/20"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>离线下载各频道时间表格 (.csv)</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* System & Boss Banner Strip */}
           <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-950 p-5 sm:p-6 mb-4 shadow-lg">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -615,6 +706,15 @@ export default function App() {
               <span>
                 显示频道：<strong className="text-white font-mono">{filteredChannels.length}</strong> / 60
               </span>
+              <button
+                type="button"
+                onClick={handleExportChannels}
+                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600 flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-xs"
+                title="导出当前各频道时间信息为表格（纯本地运行，即使断网或服务器宕机也可随时下载）"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                <span>导出当前频道时间表 (.csv)</span>
+              </button>
             </div>
 
             {loading ? (

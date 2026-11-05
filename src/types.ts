@@ -162,6 +162,7 @@ export interface OnlinePlayerInfo {
   activeChannelNos?: number[];
   connectedAt: string;
   isGuest: boolean;
+  connectionsCount?: number;
 }
 
 

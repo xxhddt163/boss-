@@ -54,7 +54,7 @@ export function initWebSocketServer(server: Server): WebSocketServer {
     safeSend(ws, {
       type: 'INIT_STATE',
       serverTime: now.toISOString(),
-      onlineCount: clients.size,
+      onlineCount: getUniqueOnlineCount(),
       channels,
       boss: db.boss,
       settings: db.settings,
@@ -69,6 +69,7 @@ export function initWebSocketServer(server: Server): WebSocketServer {
           client.userId = data.userId;
           client.username = data.username;
           client.gameId = data.gameId;
+          broadcastOnlineCount();
         } else if (data.type === 'HEARTBEAT') {
           safeSend(ws, { type: 'PONG', serverTime: new Date().toISOString() });
         }
@@ -129,7 +130,7 @@ export function broadcastAll(payload: any): void {
 export function broadcastOnlineCount(): void {
   broadcastAll({
     type: 'ONLINE_COUNT',
-    count: clients.size,
+    count: getUniqueOnlineCount(),
   });
 }
 
@@ -227,8 +228,12 @@ function broadcastClockAndCheckAlerts(now: Date): void {
   }
 }
 
+export function getUniqueOnlineCount(): number {
+  return getOnlinePlayersList().length;
+}
+
 export function getConnectedClientCount(): number {
-  return clients.size;
+  return getUniqueOnlineCount();
 }
 
 export interface OnlinePlayerInfo {
@@ -242,17 +247,21 @@ export interface OnlinePlayerInfo {
   activeChannelNos?: number[];
   connectedAt: string;
   isGuest: boolean;
+  connectionsCount?: number;
 }
 
 export function getOnlinePlayersList(): OnlinePlayerInfo[] {
   const db = loadDB();
   const list: OnlinePlayerInfo[] = [];
-  const seenUsers = new Set<string>();
+  const seenUsers = new Map<string, OnlinePlayerInfo>();
 
   clients.forEach((c) => {
     if (c.userId) {
-      if (seenUsers.has(c.userId)) return;
-      seenUsers.add(c.userId);
+      const existing = seenUsers.get(c.userId);
+      if (existing) {
+        existing.connectionsCount = (existing.connectionsCount || 1) + 1;
+        return;
+      }
 
       const dbUser = db.users.find((u) => u.id === c.userId);
       const activeVisits = db.channel_visits.filter(
@@ -260,7 +269,7 @@ export function getOnlinePlayersList(): OnlinePlayerInfo[] {
       );
       const activeChannelNos = activeVisits.map((v) => v.channel_no);
 
-      list.push({
+      const playerInfo: OnlinePlayerInfo = {
         userId: c.userId,
         username: c.username || dbUser?.username || '未知玩家',
         gameId: c.gameId || dbUser?.game_id || '未登记',
@@ -271,7 +280,11 @@ export function getOnlinePlayersList(): OnlinePlayerInfo[] {
         activeChannelNos,
         connectedAt: c.connectedAt.toISOString(),
         isGuest: false,
-      });
+        connectionsCount: 1,
+      };
+
+      seenUsers.set(c.userId, playerInfo);
+      list.push(playerInfo);
     } else {
       list.push({
         username: '未登录访客',
@@ -281,6 +294,7 @@ export function getOnlinePlayersList(): OnlinePlayerInfo[] {
         activeChannelNos: [],
         connectedAt: c.connectedAt.toISOString(),
         isGuest: true,
+        connectionsCount: 1,
       });
     }
   });
