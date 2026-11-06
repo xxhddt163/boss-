@@ -558,18 +558,158 @@ export const AdminModal: React.FC<AdminModalProps> = ({ onClose, onDataChanged }
               CHANNEL_VISIT: '频道接单',
               CHANNEL_LEAVE: '频道退单',
               CHANNEL_RESET: '管理员重置频道',
+              CHANNEL_RESET_TIMES: '管理员重置频道',
+              CHANNEL_AUTO_RESET_OVERDUE_180M: '超时自动重置',
               CHANNEL_TAG_UPDATE: '更新频道标签',
               CHANNEL_NOTE_UPDATE: '更新长期备注',
               USER_LOGIN: '用户登录',
               USER_REGISTER: '申请注册',
+              USER_CHANGE_PASSWORD: '修改密码',
               USER_PASSWORD_CHANGE: '修改密码',
-              ADMIN_USER_STATUS_CHANGE: '审核/状态变更',
+              USER_APPROVE: '审核通过账号',
+              ADMIN_USER_STATUS_CHANGE: '账号状态变更',
               ADMIN_USER_BATCH_APPROVE: '批量审核通过',
               ADMIN_USER_PROFILE_UPDATE: '修改用户资料',
               ADMIN_BOSS_CONFIG_UPDATE: '修改刷新规则',
               ADMIN_SETTINGS_UPDATE: '修改系统设置',
+              ADMIN_DATABASE_IMPORT: '导入数据库',
               ADMIN_DB_IMPORT: '导入数据库',
+              ADMIN_BACKUP_CREATE: '创建数据备份',
+              ADMIN_BACKUP_RESTORE: '还原数据备份',
+              ADMIN_DATABASE_RESET: '清空重置数据库',
               ADMIN_DB_RESET: '清空重置数据库',
+            };
+
+            const STATUS_LABELS: Record<string, string> = {
+              active: '已启用',
+              disabled: '已禁用',
+              pending: '待审核',
+            };
+
+            const ROLE_LABELS: Record<string, string> = {
+              admin: '管理员',
+              player: '普通玩家',
+            };
+
+            // Translate technical log data into plain, user-friendly Chinese
+            const translateLogDetail = (l: OperationLog): string => {
+              const od = l.old_data || {};
+              const nd = l.new_data || {};
+              const chText = l.channel_no ? `${l.channel_no}频道` : nd.channelNo ? `${nd.channelNo}频道` : nd.channel_no ? `${nd.channel_no}频道` : '';
+
+              switch (l.action) {
+                case 'KILL_RECORD_CREATE':
+                  return `角色【${nd.game_id || l.username}】在 ${chText} 完成了击杀登记｜击杀时间：${formatBeijing(nd.killed_at)}｜预计进刷：${formatBeijing(nd.entry_at)}｜保底时间：${formatBeijing(nd.guaranteed_at)}`;
+
+                case 'KILL_RECORD_BACKFILL':
+                  return `角色【${nd.game_id || l.username}】在 ${chText} 手动补录了历史击杀｜补录击杀时间：${formatBeijing(nd.killed_at)}${nd.kill_note ? `｜备注：${nd.kill_note}` : ''}`;
+
+                case 'KILL_RECORD_EDIT': {
+                  const changes: string[] = [];
+                  if (od.killed_at !== nd.killed_at) {
+                    changes.push(`击杀时间由【${formatBeijing(od.killed_at)}】改为【${formatBeijing(nd.killed_at)}】`);
+                  }
+                  if (od.game_id !== nd.game_id) {
+                    changes.push(`击杀角色由【${od.game_id || '无'}】改为【${nd.game_id || '无'}】`);
+                  }
+                  if ((od.kill_note || '') !== (nd.kill_note || '')) {
+                    changes.push(`备注由【${od.kill_note || '无'}】改为【${nd.kill_note || '无'}】`);
+                  }
+                  if (changes.length === 0) {
+                    return `重新保存了 ${chText} 的击杀记录（击杀时间：${formatBeijing(nd.killed_at)}，角色：${nd.game_id || l.username}）`;
+                  }
+                  return `修改了 ${chText} 的击杀记录：${changes.join('；')}`;
+                }
+
+                case 'KILL_RECORD_VOID':
+                  return `撤销了 ${chText} 的一条击杀记录｜撤销原因：【${nd.void_reason || '未填写'}】｜操作人：${nd.voided_by || l.username}`;
+
+                case 'KILL_RECORD_RESTORE':
+                  return `管理员【${nd.restored_by || l.username}】恢复了 ${chText} 此前被撤销的击杀记录`;
+
+                case 'CONCURRENT_KILL_CLICK':
+                  return `角色【${nd.game_id || l.username}】在 ${chText} 同一轮多人同时点击击杀，系统已按最后一次点击将击杀时间从【${formatBeijing(od.killed_at)}】更新为【${formatBeijing(nd.killed_at)}】`;
+
+                case 'CHANNEL_VISIT':
+                  return `角色【${nd.game_id || l.username}】接单蹲守 ${chText}${
+                    nd.leftOtherChannel ? `（系统已自动为您退出此前接单的 ${nd.leftOtherChannel} 频道）` : ''
+                  }`;
+
+                case 'CHANNEL_LEAVE':
+                  return `角色【${nd.game_id || l.username}】退出了 ${chText} 的接单｜退单理由：【${nd.leave_reason || '未填写'}】${
+                    nd.joined_at ? `｜接单时间：${formatBeijing(nd.joined_at)}` : ''
+                  }`;
+
+                case 'CHANNEL_RESET':
+                case 'CHANNEL_RESET_TIMES':
+                  return `管理员将 ${chText} 的所有倒计时与时间信息初始化为空（保留当前接单人员，清空频道标签，历史击杀记录不作废）`;
+
+                case 'CHANNEL_AUTO_RESET_OVERDUE_180M':
+                  return `${chText} 超过保底时间已达 ${nd.overdue_minutes ?? 180} 分钟未登记新击杀，系统自动将该频道时间初始化为空（保留接单人员，清空标签）`;
+
+                case 'CHANNEL_TAG_UPDATE':
+                  return `${chText} 标签变更：由【${od.tag || '无标签'}】修改为【${nd.tag || '无标签（已清除）'}】`;
+
+                case 'CHANNEL_NOTE_UPDATE':
+                  return `${chText} 长期备注变更：由【${od.note || '无备注'}】修改为【${nd.note || '无备注（已清空）'}】`;
+
+                case 'USER_LOGIN':
+                  return `账号【${l.username}】成功登录系统`;
+
+                case 'USER_REGISTER':
+                  return `新玩家提交了注册申请｜登录账号：【${nd.username || l.username}】｜游戏角色名：【${nd.game_id || '--'}】｜联系电话：${nd.phone || '--'}（等待管理员审核）`;
+
+                case 'USER_CHANGE_PASSWORD':
+                case 'USER_PASSWORD_CHANGE':
+                  return `账号【${l.username}】修改了登录密码`;
+
+                case 'USER_APPROVE':
+                case 'ADMIN_USER_BATCH_APPROVE':
+                  return `管理员审核通过了账号【${nd.target_username || '--'}】（游戏角色名：【${nd.target_game_id || '--'}】），该账号现可正常登录`;
+
+                case 'ADMIN_USER_STATUS_CHANGE':
+                  return `管理员将账号【${od.username || '--'}】的状态由【${STATUS_LABELS[od.status] || od.status || '--'}】修改为【${STATUS_LABELS[nd.status] || nd.status || '--'}】`;
+
+                case 'ADMIN_USER_PROFILE_UPDATE': {
+                  const pChanges: string[] = [];
+                  if (od.game_id !== nd.game_id) pChanges.push(`游戏角色名由【${od.game_id || '无'}】改为【${nd.game_id || '无'}】`);
+                  if (od.role !== nd.role) pChanges.push(`权限角色由【${ROLE_LABELS[od.role] || od.role}】改为【${ROLE_LABELS[nd.role] || nd.role}】`);
+                  if (od.phone !== nd.phone && nd.phone !== undefined) pChanges.push(`电话由【${od.phone || '无'}】改为【${nd.phone || '无'}】`);
+                  return pChanges.length > 0
+                    ? `管理员修改了用户资料：${pChanges.join('；')}`
+                    : `管理员更新了用户资料（角色名：${nd.game_id || '--'}，身份：${ROLE_LABELS[nd.role] || nd.role || '--'}）`;
+                }
+
+                case 'ADMIN_BOSS_CONFIG_UPDATE':
+                  return `管理员更新了 Boss 刷新规则：Boss名称【${nd.boss_name || '驮狼雪人'}】，进刷间隔由 ${od.entry_interval ?? '--'} 分钟改为 ${nd.entry_interval ?? '--'} 分钟，保底间隔由 ${od.guaranteed_interval ?? '--'} 分钟改为 ${nd.guaranteed_interval ?? '--'} 分钟`;
+
+                case 'ADMIN_SETTINGS_UPDATE':
+                  return `管理员更新了系统设置：进刷前提前 ${nd.reminder_before ?? 5} 分钟触发提醒`;
+
+                case 'ADMIN_BACKUP_CREATE':
+                  return `管理员手动创建了系统数据备份快照（文件名：${nd.filename || '--'}）`;
+
+                case 'ADMIN_BACKUP_RESTORE':
+                  return `管理员从备份文件【${nd.restoredFile || '--'}】还原了系统数据`;
+
+                case 'ADMIN_DATABASE_IMPORT':
+                case 'ADMIN_DB_IMPORT':
+                  return `管理员导入了外部备份数据（共包含 ${nd.recordsCount ?? 0} 条击杀记录、${nd.usersCount ?? 0} 个用户账号）`;
+
+                case 'ADMIN_DATABASE_RESET':
+                case 'ADMIN_DB_RESET':
+                  return `管理员执行了清空重置系统操作，所有频道已恢复为初始未记录状态`;
+
+                default: {
+                  if (nd.note) return String(nd.note);
+                  if (l.old_data && l.new_data) {
+                    return `变更前：${JSON.stringify(l.old_data)} → 变更后：${JSON.stringify(l.new_data)}`;
+                  }
+                  if (l.new_data) return JSON.stringify(l.new_data);
+                  if (l.old_data) return JSON.stringify(l.old_data);
+                  return '执行了系统操作';
+                }
+              }
             };
 
             const totalLogs = logs.length;
@@ -591,7 +731,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ onClose, onDataChanged }
                       </span>
                     </div>
                     <p className="text-slate-400 text-[11px] mt-0.5">
-                      完整记录所有击杀录入、补录、修改、撤销、接单、退单、登录及管理员操作历史（无 100 条截断限制）。
+                      已将所有技术日志自动翻译为直观的中文说明，方便直接查看每次操作的具体内容。
                     </p>
                   </div>
 
@@ -608,16 +748,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({ onClose, onDataChanged }
                     >
                       <option value="">全部操作类型</option>
                       <option value="KILL_RECORD">全部击杀相关 (登记/补录/改/撤)</option>
-                      <option value="KILL_RECORD_CREATE">击杀登记 (KILL_RECORD_CREATE)</option>
-                      <option value="KILL_RECORD_BACKFILL">手动补录 (KILL_RECORD_BACKFILL)</option>
-                      <option value="KILL_RECORD_EDIT">修改记录 (KILL_RECORD_EDIT)</option>
-                      <option value="KILL_RECORD_VOID">撤销记录 (KILL_RECORD_VOID)</option>
-                      <option value="CHANNEL_VISIT">频道接单 (CHANNEL_VISIT)</option>
-                      <option value="CHANNEL_LEAVE">频道退单 (CHANNEL_LEAVE)</option>
-                      <option value="CHANNEL_RESET">重置频道 (CHANNEL_RESET)</option>
-                      <option value="CHANNEL_TAG_UPDATE">频道标签 (CHANNEL_TAG_UPDATE)</option>
-                      <option value="USER_LOGIN">用户登录 (USER_LOGIN)</option>
-                      <option value="ADMIN_">管理员操作 (ADMIN_*)</option>
+                      <option value="KILL_RECORD_CREATE">击杀登记</option>
+                      <option value="KILL_RECORD_BACKFILL">手动补录</option>
+                      <option value="KILL_RECORD_EDIT">修改记录</option>
+                      <option value="KILL_RECORD_VOID">撤销记录</option>
+                      <option value="CHANNEL_VISIT">频道接单</option>
+                      <option value="CHANNEL_LEAVE">频道退单</option>
+                      <option value="CHANNEL_RESET">重置频道</option>
+                      <option value="CHANNEL_TAG_UPDATE">频道标签</option>
+                      <option value="USER_LOGIN">用户登录</option>
+                      <option value="ADMIN_">管理员操作</option>
                     </select>
 
                     <select
@@ -728,10 +868,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({ onClose, onDataChanged }
                         <th className="py-2.5 px-3 font-semibold whitespace-nowrap">操作账号</th>
                         <th className="py-2.5 px-3 font-semibold whitespace-nowrap">频道</th>
                         <th className="py-2.5 px-3 font-semibold whitespace-nowrap">操作类型</th>
-                        <th className="py-2.5 px-3 font-semibold">完整变更细节</th>
+                        <th className="py-2.5 px-3 font-semibold">操作详情说明</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60 bg-slate-950/30 text-[11px]">
+                    <tbody className="divide-y divide-slate-800/60 bg-slate-950/30 text-xs">
                       {displayedLogs.length === 0 ? (
                         <tr>
                           <td colSpan={5} className="py-10 text-center text-slate-500">
@@ -740,39 +880,27 @@ export const AdminModal: React.FC<AdminModalProps> = ({ onClose, onDataChanged }
                         </tr>
                       ) : (
                         displayedLogs.map((l) => {
-                          const cnLabel = ACTION_LABELS[l.action];
-                          const detailText =
-                            l.old_data && l.new_data
-                              ? `变更前: ${JSON.stringify(l.old_data)} → 变更后: ${JSON.stringify(l.new_data)}`
-                              : l.new_data
-                              ? JSON.stringify(l.new_data)
-                              : l.old_data
-                              ? JSON.stringify(l.old_data)
-                              : '--';
+                          const cnLabel = ACTION_LABELS[l.action] || l.action;
+                          const friendlyText = translateLogDetail(l);
 
                           return (
                             <tr key={l.id} className="hover:bg-slate-900/60 align-top">
-                              <td className="py-2 px-3 font-mono text-slate-400 whitespace-nowrap">
+                              <td className="py-2.5 px-3 font-mono text-slate-400 whitespace-nowrap text-[11px]">
                                 {formatBeijing(l.created_at)}
                               </td>
-                              <td className="py-2 px-3 font-semibold text-cyan-300 whitespace-nowrap">
+                              <td className="py-2.5 px-3 font-semibold text-cyan-300 whitespace-nowrap">
                                 {l.username}
                               </td>
-                              <td className="py-2 px-3 font-mono text-slate-300 whitespace-nowrap">
+                              <td className="py-2.5 px-3 font-mono text-slate-300 whitespace-nowrap">
                                 {l.channel_no ? `${l.channel_no}频道` : '--'}
                               </td>
-                              <td className="py-2 px-3 whitespace-nowrap">
-                                <div className="flex flex-col">
-                                  {cnLabel && (
-                                    <span className="font-bold text-purple-300">{cnLabel}</span>
-                                  )}
-                                  <span className="font-mono text-[10px] text-slate-400">
-                                    {l.action}
-                                  </span>
-                                </div>
+                              <td className="py-2.5 px-3 whitespace-nowrap">
+                                <span className="inline-block px-2 py-0.5 rounded bg-purple-950/70 border border-purple-800/60 font-bold text-purple-300 text-[11px]">
+                                  {cnLabel}
+                                </span>
                               </td>
-                              <td className="py-2 px-3 text-slate-300 font-mono break-all whitespace-pre-wrap leading-relaxed">
-                                {detailText}
+                              <td className="py-2.5 px-3 text-slate-200 break-words leading-relaxed">
+                                {friendlyText}
                               </td>
                             </tr>
                           );
