@@ -639,7 +639,16 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
   const lastMonthKey = getBeijingDateParts(lastMonthDate).monthKey;
 
   // Daily map initialization: past 14 days
-  const dailyStatsMap = new Map<string, { date: string; label: string; count: number; isToday: boolean }>();
+  const dailyStatsMap = new Map<
+    string,
+    {
+      date: string;
+      label: string;
+      count: number;
+      isToday: boolean;
+      roleCounts: Map<string, { game_id: string; username: string; count: number }>;
+    }
+  >();
   for (let i = 13; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
     const p = getBeijingDateParts(d);
@@ -648,11 +657,22 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
       label: p.label,
       count: 0,
       isToday: p.dateKey === todayDateKey,
+      roleCounts: new Map(),
     });
   }
 
   // Weekly map initialization: past 8 weeks
-  const weeklyStatsMap = new Map<string, { week: string; label: string; dateRange: string; count: number; isCurrentWeek: boolean }>();
+  const weeklyStatsMap = new Map<
+    string,
+    {
+      week: string;
+      label: string;
+      dateRange: string;
+      count: number;
+      isCurrentWeek: boolean;
+      roleCounts: Map<string, { game_id: string; username: string; count: number }>;
+    }
+  >();
   for (let w = 7; w >= 0; w--) {
     const d = new Date(now.getTime() - w * 7 * 24 * 60 * 60 * 1000);
     const wInfo = getBeijingWeekInfo(d);
@@ -663,12 +683,23 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
         dateRange: wInfo.dateRange,
         count: 0,
         isCurrentWeek: wInfo.weekKey === thisWeekKey,
+        roleCounts: new Map(),
       });
     }
   }
 
   // Monthly map initialization: past 6 months
-  const monthlyStatsMap = new Map<string, { month: string; label: string; yearMonth: string; count: number; isCurrentMonth: boolean }>();
+  const monthlyStatsMap = new Map<
+    string,
+    {
+      month: string;
+      label: string;
+      yearMonth: string;
+      count: number;
+      isCurrentMonth: boolean;
+      roleCounts: Map<string, { game_id: string; username: string; count: number }>;
+    }
+  >();
   for (let m = 5; m >= 0; m--) {
     const d = new Date(todayParts.year, todayParts.month - 1 - m, 1);
     const mParts = getBeijingDateParts(d);
@@ -678,6 +709,7 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
       yearMonth: mParts.yearMonth,
       count: 0,
       isCurrentMonth: mParts.monthKey === thisMonthKey,
+      roleCounts: new Map(),
     });
   }
 
@@ -708,15 +740,35 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
   let thisMonthKills = 0;
   let lastMonthKills = 0;
 
+  // Helper to increment role count in a period bucket
+  const addRoleToBucket = (
+    roleCounts: Map<string, { game_id: string; username: string; count: number }>,
+    charName: string,
+    username: string
+  ) => {
+    const existing = roleCounts.get(charName);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      roleCounts.set(charName, { game_id: charName, username, count: 1 });
+    }
+  };
+
   // Process all valid kills
   for (const record of validKills) {
     const kDate = new Date(record.killed_at);
     const kParts = getBeijingDateParts(kDate);
     const kWInfo = getBeijingWeekInfo(kDate);
 
+    const charName = (record.game_id || record.created_by || '神秘玩家').trim();
+    const u = record.created_by_user_id ? userMap.get(record.created_by_user_id) : userMap.get(record.created_by);
+    const resolvedUsername = u?.username || record.created_by || charName;
+
     // 1. Daily
     if (dailyStatsMap.has(kParts.dateKey)) {
-      dailyStatsMap.get(kParts.dateKey)!.count += 1;
+      const dayBucket = dailyStatsMap.get(kParts.dateKey)!;
+      dayBucket.count += 1;
+      addRoleToBucket(dayBucket.roleCounts, charName, resolvedUsername);
     }
     if (kParts.dateKey === todayDateKey) {
       todayKills += 1;
@@ -726,7 +778,9 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
 
     // 2. Weekly
     if (weeklyStatsMap.has(kWInfo.weekKey)) {
-      weeklyStatsMap.get(kWInfo.weekKey)!.count += 1;
+      const weekBucket = weeklyStatsMap.get(kWInfo.weekKey)!;
+      weekBucket.count += 1;
+      addRoleToBucket(weekBucket.roleCounts, charName, resolvedUsername);
     }
     if (kWInfo.weekKey === thisWeekKey) {
       thisWeekKills += 1;
@@ -736,7 +790,9 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
 
     // 3. Monthly
     if (monthlyStatsMap.has(kParts.monthKey)) {
-      monthlyStatsMap.get(kParts.monthKey)!.count += 1;
+      const monthBucket = monthlyStatsMap.get(kParts.monthKey)!;
+      monthBucket.count += 1;
+      addRoleToBucket(monthBucket.roleCounts, charName, resolvedUsername);
     }
     if (kParts.monthKey === thisMonthKey) {
       thisMonthKills += 1;
@@ -745,14 +801,12 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
     }
 
     // 4. Per person / character
-    const charName = (record.game_id || record.created_by || '神秘玩家').trim();
     let mem = memberMap.get(charName);
     if (!mem) {
-      const u = record.created_by_user_id ? userMap.get(record.created_by_user_id) : userMap.get(record.created_by);
       mem = {
         user_id: record.created_by_user_id || u?.id,
         game_id: charName,
-        username: u?.username || record.created_by || charName,
+        username: resolvedUsername,
         todayCount: 0,
         weekCount: 0,
         monthCount: 0,
@@ -774,9 +828,11 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
 
   // Convert member stats array and sort by total kills desc
   const memberStatsList = Array.from(memberMap.values()).sort((a, b) => b.totalCount - a.totalCount);
+  const roleColorMap = new Map<string, string>();
   const memberStats = memberStatsList.map((m, idx) => {
     const percentage = totalKills > 0 ? Math.round((m.totalCount / totalKills) * 1000) / 10 : 0;
     const color = STAT_PALETTE[idx % STAT_PALETTE.length];
+    roleColorMap.set(m.game_id, color);
     return {
       ...m,
       percentage,
@@ -784,7 +840,22 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
     };
   });
 
-  // Pie chart role share data: top roles + others if too many
+  // Helper to convert a bucket's roleCounts map into sorted RoleKillShare[]
+  const buildBucketRoleShare = (
+    roleCounts: Map<string, { game_id: string; username: string; count: number }>,
+    bucketTotal: number
+  ) => {
+    const list = Array.from(roleCounts.values()).sort((a, b) => b.count - a.count);
+    return list.map((r, idx) => ({
+      game_id: r.game_id,
+      username: r.username,
+      count: r.count,
+      percentage: bucketTotal > 0 ? Math.round((r.count / bucketTotal) * 1000) / 10 : 0,
+      color: roleColorMap.get(r.game_id) || STAT_PALETTE[idx % STAT_PALETTE.length],
+    }));
+  };
+
+  // Pie chart role share data (overall fallback)
   const roleShare = memberStats.map((m) => ({
     game_id: m.game_id,
     username: m.username,
@@ -802,9 +873,18 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
     thisMonthKills,
     lastMonthKills,
     uniqueKillersCount: memberStats.length,
-    dailyStats: Array.from(dailyStatsMap.values()),
-    weeklyStats: Array.from(weeklyStatsMap.values()),
-    monthlyStats: Array.from(monthlyStatsMap.values()),
+    dailyStats: Array.from(dailyStatsMap.values()).map(({ roleCounts, ...rest }) => ({
+      ...rest,
+      roleShare: buildBucketRoleShare(roleCounts, rest.count),
+    })),
+    weeklyStats: Array.from(weeklyStatsMap.values()).map(({ roleCounts, ...rest }) => ({
+      ...rest,
+      roleShare: buildBucketRoleShare(roleCounts, rest.count),
+    })),
+    monthlyStats: Array.from(monthlyStatsMap.values()).map(({ roleCounts, ...rest }) => ({
+      ...rest,
+      roleShare: buildBucketRoleShare(roleCounts, rest.count),
+    })),
     roleShare,
     memberStats,
   };

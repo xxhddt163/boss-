@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { KillRecord, User } from '../types.ts';
 import { api } from '../services/api.ts';
-import { formatBeijing, getCurrentServerTime, formatBeijingDateTime } from '../utils/time.ts';
+import { formatBeijing, getCurrentServerTime, formatBeijingDateTime, getBeijingParts } from '../utils/time.ts';
 import { WheelTimePickerModal } from './WheelTimePickerModal.tsx';
 import {
   X,
@@ -63,19 +63,22 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
     if (!isoString) return '--:--:--';
     const d = new Date(isoString);
     if (isNaN(d.getTime())) return '--:--:--';
-    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    const p = getBeijingParts(d);
+    return `${pad(p.hour)}:${pad(p.minute)}:${pad(p.second)}`;
   };
   const formatDateYmd = (isoString?: string) => {
     if (!isoString) return '';
     const d = new Date(isoString);
     if (isNaN(d.getTime())) return '';
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const p = getBeijingParts(d);
+    return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
   };
   const formatDateTime = (isoString?: string) => {
     if (!isoString) return '--:--:--';
     const d = new Date(isoString);
     if (isNaN(d.getTime())) return '--:--:--';
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    const p = getBeijingParts(d);
+    return `${p.year}-${pad(p.month)}-${pad(p.day)} ${pad(p.hour)}:${pad(p.minute)}:${pad(p.second)}`;
   };
 
   const handleTimeConfirmed = (newDate: Date) => {
@@ -129,6 +132,11 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
       setErrorMsg('请选择实际击杀时间');
       return;
     }
+    const targetMs = new Date(bfTime).getTime();
+    if (targetMs > getCurrentServerTime().getTime() + 60 * 1000) {
+      setErrorMsg('击杀时间不能晚于当前实际时间！（若跨零点补录昨日晚间击杀，请将日期修改为昨天）');
+      return;
+    }
     try {
       setErrorMsg('');
       await api.backfillKill(channelNo, {
@@ -155,6 +163,13 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
   };
 
   const saveEdit = async (recordId: string) => {
+    if (editTime) {
+      const targetMs = new Date(editTime).getTime();
+      if (targetMs > getCurrentServerTime().getTime() + 60 * 1000) {
+        setErrorMsg('击杀时间不能晚于当前实际时间！（若跨零点修改昨日晚间击杀，请将日期修改为昨天）');
+        return;
+      }
+    }
     try {
       setErrorMsg('');
       await api.editKillRecord(channelNo, recordId, {
@@ -319,7 +334,7 @@ export const ChannelDetailModal: React.FC<ChannelDetailModalProps> = ({
               <Clock className="w-4 h-4 text-cyan-400" />
               <span>击杀记录历史 ({records.length}条)</span>
               <span className="text-[11px] text-slate-400 font-normal">
-                (仅保存12小时内历史，超过自动清理)
+                (当前列表展示12小时内记录，后台统计永久保留)
               </span>
             </div>
 

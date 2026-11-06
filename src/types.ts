@@ -90,11 +90,20 @@ export interface SystemSettings {
   updated_by: string;
 }
 
+export interface RoleKillShare {
+  game_id: string; // 角色名
+  username?: string;
+  count: number;
+  percentage: number; // e.g. 28.5
+  color: string;
+}
+
 export interface DailyKillStat {
   date: string; // YYYY-MM-DD
   label: string; // MM-DD
   count: number;
   isToday?: boolean;
+  roleShare: RoleKillShare[];
 }
 
 export interface WeeklyKillStat {
@@ -103,6 +112,7 @@ export interface WeeklyKillStat {
   dateRange: string; // e.g. "11/02-11/08"
   count: number;
   isCurrentWeek?: boolean;
+  roleShare: RoleKillShare[];
 }
 
 export interface MonthlyKillStat {
@@ -111,14 +121,7 @@ export interface MonthlyKillStat {
   yearMonth: string; // e.g. "2026年11月"
   count: number;
   isCurrentMonth?: boolean;
-}
-
-export interface RoleKillShare {
-  game_id: string; // 角色名
-  username?: string;
-  count: number;
-  percentage: number; // e.g. 28.5
-  color: string;
+  roleShare: RoleKillShare[];
 }
 
 export interface MemberKillStat {

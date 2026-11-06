@@ -160,24 +160,19 @@ export function saveDBImmediate(): void {
   }
 }
 
-// Auto cleanup: Only keep kill history within 12 hours, purge records older than 12 hours
+// Note: Kill records are permanently retained in dbState.kill_records for accurate daily/weekly/monthly statistics.
+// The 12-hour window filter is applied at the single-channel history query layer (/api/channels/:channelNo/history).
 export function cleanupOldKillRecords(): void {
   if (!dbState) return;
-  const twelveHoursAgo = Date.now() - 12 * 60 * 60 * 1000;
   const beforeCount = dbState.kill_records.length;
   dbState.kill_records = dbState.kill_records.filter((k) => {
     const kTime = new Date(k.killed_at).getTime();
-    return !isNaN(kTime) && kTime >= twelveHoursAgo;
+    return !isNaN(kTime);
   });
   if (dbState.kill_records.length !== beforeCount) {
     scheduleSave();
   }
 }
-
-// Start recurring cleanup timer every 5 minutes
-setInterval(() => {
-  cleanupOldKillRecords();
-}, 5 * 60 * 1000);
 
 export function scheduleSave(): void {
   if (saveTimer) return;

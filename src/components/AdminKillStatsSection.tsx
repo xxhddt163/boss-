@@ -43,6 +43,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
   const [collapsed, setCollapsed] = useState<boolean>(false);
   const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null);
   const [hoveredSliceIndex, setHoveredSliceIndex] = useState<number | null>(null);
+  const [selectedPeriodKey, setSelectedPeriodKey] = useState<string | null>(null);
   const [memberSearch, setMemberSearch] = useState<string>('');
 
   const fetchStats = async (isManual = false) => {
@@ -69,7 +70,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
     }
   }, [lastUpdateTimestamp]);
 
-  // Bar chart active data source
+  // Bar chart active data source (with per-period roleShare)
   const barData = useMemo(() => {
     if (!stats) return [];
     if (timeScale === 'daily') {
@@ -77,27 +78,49 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
         key: d.date,
         label: d.label,
         subLabel: d.date,
+        periodTitle: d.isToday ? `今日 (${d.date})` : d.date,
+        shortTitle: d.isToday ? '今日' : d.label,
         count: d.count,
-        isCurrent: d.isToday,
+        isCurrent: !!d.isToday,
+        roleShare: d.roleShare || [],
       }));
     } else if (timeScale === 'weekly') {
       return stats.weeklyStats.map((w) => ({
         key: w.week,
         label: w.label,
         subLabel: w.dateRange,
+        periodTitle: w.isCurrentWeek ? `本周 · ${w.label} (${w.dateRange})` : `${w.label} (${w.dateRange})`,
+        shortTitle: w.isCurrentWeek ? '本周' : w.label,
         count: w.count,
-        isCurrent: w.isCurrentWeek,
+        isCurrent: !!w.isCurrentWeek,
+        roleShare: w.roleShare || [],
       }));
     } else {
       return stats.monthlyStats.map((m) => ({
         key: m.month,
         label: m.label,
         subLabel: m.yearMonth,
+        periodTitle: m.isCurrentMonth ? `本月 (${m.yearMonth})` : m.yearMonth,
+        shortTitle: m.isCurrentMonth ? '本月' : m.label,
         count: m.count,
-        isCurrent: m.isCurrentMonth,
+        isCurrent: !!m.isCurrentMonth,
+        roleShare: m.roleShare || [],
       }));
     }
   }, [stats, timeScale]);
+
+  // Active period item driving the Pie Chart (defaults to current period: Today / This Week / This Month)
+  const activePeriodItem = useMemo(() => {
+    if (barData.length === 0) return null;
+    if (selectedPeriodKey) {
+      const found = barData.find((b) => b.key === selectedPeriodKey);
+      if (found) return found;
+    }
+    return barData.find((b) => b.isCurrent) || barData[barData.length - 1];
+  }, [barData, selectedPeriodKey]);
+
+  const activeRoleShare = activePeriodItem?.roleShare || [];
+  const activePeriodKills = activePeriodItem?.count || 0;
 
   // Bar chart scaling
   const maxBarCount = useMemo(() => {
@@ -106,18 +129,20 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
     return Math.max(maxVal, 6);
   }, [barData]);
 
-  // Pie chart computation
+  // Pie chart computation based on activePeriodItem
   const pieSlices = useMemo(() => {
-    if (!stats || !stats.roleShare || stats.roleShare.length === 0) return [];
-    const total = stats.totalKills;
+    if (!activeRoleShare || activeRoleShare.length === 0) return [];
+    const total = activePeriodKills;
     if (total === 0) return [];
 
     let currentAngle = -Math.PI / 2; // start from top (12 o'clock)
-    return stats.roleShare.map((role, idx) => {
-      const sliceAngle = (role.count / total) * 2 * Math.PI;
+    return activeRoleShare.map((role) => {
+      const rawAngle = (role.count / total) * 2 * Math.PI;
+      // Clamp slightly below 2*PI so a single 100% role still renders a full SVG arc
+      const sliceAngle = Math.min(rawAngle, 2 * Math.PI - 0.0005);
       const startAngle = currentAngle;
       const endAngle = currentAngle + sliceAngle;
-      currentAngle = endAngle;
+      currentAngle += rawAngle;
 
       const rOuter = 95;
       const rInner = 56;
@@ -154,7 +179,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
         color: role.color,
       };
     });
-  }, [stats]);
+  }, [activeRoleShare, activePeriodKills]);
 
   // Filtered member list for ranking table
   const filteredMembers = useMemo(() => {
@@ -339,10 +364,10 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                       </h3>
                       <p className="text-[11px] text-slate-400">
                         {timeScale === 'daily'
-                          ? '每日击杀趋势（近14天）'
+                          ? '每日击杀趋势（近14天 · 点击柱条可联动右侧饼图）'
                           : timeScale === 'weekly'
-                          ? '每周击杀趋势（近8周）'
-                          : '每月击杀汇总（近6个月）'}
+                          ? '每周击杀趋势（近8周 · 点击柱条可联动右侧饼图）'
+                          : '每月击杀汇总（近6个月 · 点击柱条可联动右侧饼图）'}
                       </p>
                     </div>
                   </div>
@@ -350,7 +375,11 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                   {/* Switch between Daily / Weekly / Monthly */}
                   <div className="inline-flex rounded-lg bg-slate-900 border border-slate-800 p-0.5">
                     <button
-                      onClick={() => setTimeScale('daily')}
+                      onClick={() => {
+                        setTimeScale('daily');
+                        setSelectedPeriodKey(null);
+                        setHoveredSliceIndex(null);
+                      }}
                       className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
                         timeScale === 'daily'
                           ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
@@ -360,7 +389,11 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                       按日
                     </button>
                     <button
-                      onClick={() => setTimeScale('weekly')}
+                      onClick={() => {
+                        setTimeScale('weekly');
+                        setSelectedPeriodKey(null);
+                        setHoveredSliceIndex(null);
+                      }}
                       className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
                         timeScale === 'weekly'
                           ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
@@ -370,7 +403,11 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                       按周
                     </button>
                     <button
-                      onClick={() => setTimeScale('monthly')}
+                      onClick={() => {
+                        setTimeScale('monthly');
+                        setSelectedPeriodKey(null);
+                        setHoveredSliceIndex(null);
+                      }}
                       className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
                         timeScale === 'monthly'
                           ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
@@ -400,6 +437,11 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                         <linearGradient id="barGradientHighlight" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#38bdf8" stopOpacity="1" />
                           <stop offset="100%" stopColor="#0284c7" stopOpacity="0.7" />
+                        </linearGradient>
+                        {/* Bar Gradient Selected */}
+                        <linearGradient id="barGradientSelected" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#f59e0b" stopOpacity="1" />
+                          <stop offset="100%" stopColor="#d97706" stopOpacity="0.75" />
                         </linearGradient>
                       </defs>
 
@@ -443,6 +485,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                         const barHeight = maxBarCount > 0 ? (item.count / maxBarCount) * 145 : 0;
                         const y = 175 - barHeight;
                         const isHovered = hoveredBarIndex === idx;
+                        const isSelected = activePeriodItem?.key === item.key;
 
                         return (
                           <g
@@ -450,26 +493,30 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                             className="cursor-pointer transition-all duration-150"
                             onMouseEnter={() => setHoveredBarIndex(idx)}
                             onMouseLeave={() => setHoveredBarIndex(null)}
+                            onClick={() => {
+                              setSelectedPeriodKey(item.key);
+                              setHoveredSliceIndex(null);
+                            }}
                           >
-                            {/* Hitbox area for smooth hovering */}
+                            {/* Hitbox area for smooth hovering & clicking */}
                             <rect
                               x={40 + idx * slotWidth}
                               y="10"
                               width={slotWidth}
-                              height="175"
+                              height="205"
                               fill="transparent"
                             />
 
-                            {/* Background slot subtle glow on hover */}
-                            {isHovered && (
+                            {/* Background slot subtle glow on hover or selection */}
+                            {(isHovered || isSelected) && (
                               <rect
                                 x={40 + idx * slotWidth + 2}
-                                y="20"
+                                y="18"
                                 width={slotWidth - 4}
-                                height="155"
+                                height="160"
                                 rx="4"
-                                fill="#06b6d4"
-                                opacity="0.08"
+                                fill={isSelected ? '#f59e0b' : '#06b6d4'}
+                                opacity={isSelected ? 0.12 : 0.08}
                               />
                             )}
 
@@ -480,7 +527,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                               width={barWidth}
                               height="2"
                               rx="1"
-                              fill="#334155"
+                              fill={isSelected ? '#f59e0b' : '#334155'}
                             />
 
                             {/* Value Bar */}
@@ -491,9 +538,21 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                                 width={barWidth}
                                 height={barHeight}
                                 rx="4"
-                                fill={item.isCurrent || isHovered ? 'url(#barGradientHighlight)' : 'url(#barGradientCyan)'}
-                                stroke={item.isCurrent || isHovered ? '#7dd3fc' : '#22d3ee'}
-                                strokeWidth={isHovered ? 1.5 : 0.8}
+                                fill={
+                                  isSelected
+                                    ? 'url(#barGradientSelected)'
+                                    : item.isCurrent || isHovered
+                                    ? 'url(#barGradientHighlight)'
+                                    : 'url(#barGradientCyan)'
+                                }
+                                stroke={
+                                  isSelected
+                                    ? '#fde68a'
+                                    : item.isCurrent || isHovered
+                                    ? '#7dd3fc'
+                                    : '#22d3ee'
+                                }
+                                strokeWidth={isSelected || isHovered ? 1.5 : 0.8}
                                 className="transition-all duration-200"
                               />
                             )}
@@ -504,7 +563,13 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                                 x={x + barWidth / 2}
                                 y={Math.max(y - 5, 20)}
                                 textAnchor="middle"
-                                fill={item.isCurrent || isHovered ? '#38bdf8' : '#94a3b8'}
+                                fill={
+                                  isSelected
+                                    ? '#fbbf24'
+                                    : item.isCurrent || isHovered
+                                    ? '#38bdf8'
+                                    : '#94a3b8'
+                                }
                                 fontSize="11"
                                 fontWeight="bold"
                                 fontFamily="monospace"
@@ -518,22 +583,37 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                               x={x + barWidth / 2}
                               y="196"
                               textAnchor="middle"
-                              fill={item.isCurrent ? '#38bdf8' : isHovered ? '#e2e8f0' : '#64748b'}
+                              fill={
+                                isSelected
+                                  ? '#fbbf24'
+                                  : item.isCurrent
+                                  ? '#38bdf8'
+                                  : isHovered
+                                  ? '#e2e8f0'
+                                  : '#64748b'
+                              }
                               fontSize={totalBars > 10 ? '9' : '10'}
-                              fontWeight={item.isCurrent ? 'bold' : 'normal'}
+                              fontWeight={isSelected || item.isCurrent ? 'bold' : 'normal'}
                             >
                               {item.label}
                             </text>
 
-                            {/* Current Period Indicator */}
-                            {item.isCurrent && (
+                            {/* Selected / Current Period Indicator */}
+                            {isSelected ? (
+                              <circle
+                                cx={x + barWidth / 2}
+                                cy="206"
+                                r="3"
+                                fill="#fbbf24"
+                              />
+                            ) : item.isCurrent ? (
                               <circle
                                 cx={x + barWidth / 2}
                                 cy="206"
                                 r="2.5"
                                 fill="#38bdf8"
                               />
-                            )}
+                            ) : null}
                           </g>
                         );
                       })}
@@ -555,6 +635,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                         <strong className="text-cyan-300 font-mono text-sm ml-1">
                           {barData[hoveredBarIndex].count}
                         </strong> 次
+                        <span className="text-[10px] text-amber-300 ml-2">(点击查看饼图占比)</span>
                       </div>
                     </div>
                   )}
@@ -563,38 +644,61 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                 {/* Footer notes */}
                 <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-500 font-mono">
                   <span>总计周期峰值: {maxBarCount} 次</span>
-                  <span>{timeScale === 'daily' ? '每日 00:00~23:59' : timeScale === 'weekly' ? '每周一至周日' : '北京时间自然月'}</span>
+                  <span>
+                    当前选中: <strong className="text-amber-300">{activePeriodItem?.periodTitle || '--'}</strong>
+                  </span>
                 </div>
               </div>
 
               {/* Right Column (5 cols): Pie / Donut Chart of Role Kill Share */}
               <div className="lg:col-span-5 rounded-xl bg-slate-950/70 border border-slate-800/90 p-4 sm:p-5 flex flex-col justify-between shadow-inner">
                 {/* Pie Chart Header */}
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2">
-                    <PieIcon className="w-4 h-4 text-emerald-400" />
+                    <PieIcon className="w-4 h-4 text-emerald-400 shrink-0" />
                     <div>
-                      <h3 className="text-xs sm:text-sm font-bold text-white tracking-wide">
-                        角色击杀数占比饼状图
-                      </h3>
-                      <p className="text-[11px] text-slate-400">
-                        各角色击杀总数占全服总击杀的份额比例
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-xs sm:text-sm font-bold text-white tracking-wide">
+                          角色击杀数占比饼状图
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                          {activePeriodItem?.periodTitle || '当前周期'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        当前展示 <strong className="text-slate-200">{activePeriodItem?.periodTitle || '所选周期'}</strong> 内各角色击杀占比
                       </p>
                     </div>
                   </div>
-                  <span className="text-[11px] font-mono text-slate-400">
-                    共 <strong className="text-white">{stats?.roleShare.length ?? 0}</strong> 个角色
-                  </span>
+                  <div className="flex flex-col items-end shrink-0 gap-1">
+                    <span className="text-[11px] font-mono text-slate-400">
+                      共 <strong className="text-white">{activeRoleShare.length}</strong> 个角色
+                    </span>
+                    {activePeriodItem && !activePeriodItem.isCurrent && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPeriodKey(null);
+                          setHoveredSliceIndex(null);
+                        }}
+                        className="text-[10px] text-cyan-400 hover:text-cyan-300 underline cursor-pointer"
+                      >
+                        切回{timeScale === 'daily' ? '今日' : timeScale === 'weekly' ? '本周' : '本月'}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Donut Chart Visual & Interactive Center */}
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 py-2">
                   <div className="relative w-56 h-56 shrink-0 flex items-center justify-center">
-                    {stats?.totalKills === 0 ? (
+                    {activePeriodKills === 0 ? (
                       <div className="w-48 h-48 rounded-full border-2 border-dashed border-slate-800 flex flex-col items-center justify-center text-center p-4">
                         <Users className="w-6 h-6 text-slate-600 mb-1" />
-                        <span className="text-xs font-medium text-slate-500">暂无角色击杀记录</span>
-                        <span className="text-[10px] text-slate-600 mt-0.5">记录后自动成图</span>
+                        <span className="text-xs font-medium text-slate-400">
+                          {activePeriodItem?.shortTitle || '该周期'}暂无击杀记录
+                        </span>
+                        <span className="text-[10px] text-slate-600 mt-0.5">可点击左侧其他柱条查看</span>
                       </div>
                     ) : (
                       <svg className="w-56 h-56 transform -rotate-90 select-none" viewBox="0 0 260 260">
@@ -618,30 +722,30 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                     )}
 
                     {/* Donut Center Display */}
-                    {stats && stats.totalKills > 0 && (
+                    {activePeriodKills > 0 && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-4">
-                        {hoveredSliceIndex !== null && stats.roleShare[hoveredSliceIndex] ? (
+                        {hoveredSliceIndex !== null && activeRoleShare[hoveredSliceIndex] ? (
                           <>
                             <span className="text-[11px] font-bold text-slate-300 truncate max-w-[110px]">
-                              {stats.roleShare[hoveredSliceIndex].game_id}
+                              {activeRoleShare[hoveredSliceIndex].game_id}
                             </span>
                             <span className="text-xl font-extrabold font-mono text-white mt-0.5">
-                              {stats.roleShare[hoveredSliceIndex].percentage}%
+                              {activeRoleShare[hoveredSliceIndex].percentage}%
                             </span>
                             <span className="text-[10px] text-slate-400">
-                              {stats.roleShare[hoveredSliceIndex].count} 次击杀
+                              {activeRoleShare[hoveredSliceIndex].count} 次击杀
                             </span>
                           </>
                         ) : (
                           <>
-                            <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
-                              总击杀量
+                            <span className="text-[10px] uppercase tracking-wider text-amber-300/90 font-semibold truncate max-w-[110px]">
+                              {activePeriodItem?.shortTitle || '当前'}击杀量
                             </span>
                             <span className="text-2xl font-extrabold font-mono text-white mt-0.5">
-                              {stats.totalKills}
+                              {activePeriodKills}
                             </span>
                             <span className="text-[10px] text-slate-400">
-                              {stats.uniqueKillersCount} 位活跃角色
+                              {activeRoleShare.length} 位参与角色
                             </span>
                           </>
                         )}
@@ -651,10 +755,10 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
 
                   {/* Legend on Right / Bottom */}
                   <div className="flex-1 w-full max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                    {stats?.roleShare.length === 0 ? (
-                      <p className="text-xs text-slate-500 text-center py-4">暂无角色数据</p>
+                    {activeRoleShare.length === 0 ? (
+                      <p className="text-xs text-slate-500 text-center py-4">该周期暂无角色数据</p>
                     ) : (
-                      stats?.roleShare.slice(0, 7).map((role, idx) => {
+                      activeRoleShare.map((role, idx) => {
                         const isHovered = hoveredSliceIndex === idx;
                         return (
                           <div
@@ -682,18 +786,13 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                         );
                       })
                     )}
-                    {stats && stats.roleShare.length > 7 && (
-                      <p className="text-[10px] text-slate-500 text-center pt-1">
-                        + 其余 {stats.roleShare.length - 7} 位角色见下方明细榜
-                      </p>
-                    )}
                   </div>
                 </div>
 
                 {/* Footer notes */}
                 <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-500">
-                  <span>悬浮切片或图例查看占比</span>
-                  <span className="font-mono">占比按全服有效击杀统计</span>
+                  <span>点击左侧条形图可切换周期</span>
+                  <span className="font-mono">当前合计: {activePeriodKills} 次击杀</span>
                 </div>
               </div>
             </div>

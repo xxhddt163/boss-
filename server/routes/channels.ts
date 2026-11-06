@@ -314,12 +314,17 @@ channelsRouter.post('/:channelNo/kill', (req: Request, res: Response) => {
   });
 });
 
-// 5. Get channel kill history
+// 5. Get channel kill history (only display recent 12 hours in the single-channel modal)
 channelsRouter.get('/:channelNo/history', (req: Request, res: Response) => {
   const channelNo = parseInt(req.params.channelNo, 10);
   const db = loadDB();
+  const twelveHoursAgo = Date.now() - 12 * 60 * 60 * 1000;
   const records = db.kill_records
-    .filter((k) => k.channel_no === channelNo)
+    .filter((k) => {
+      if (k.channel_no !== channelNo) return false;
+      const kTime = new Date(k.killed_at).getTime();
+      return !isNaN(kTime) && kTime >= twelveHoursAgo;
+    })
     .sort((a, b) => new Date(b.killed_at).getTime() - new Date(a.killed_at).getTime());
 
   const channel = db.channels.find((c) => c.channel_no === channelNo);
@@ -347,6 +352,13 @@ channelsRouter.post('/:channelNo/backfill', (req: Request, res: Response) => {
   const killedDate = new Date(killed_at);
   if (isNaN(killedDate.getTime())) {
     return res.status(400).json({ error: '击杀时间格式无效' });
+  }
+
+  // Prevent accidental future timestamps (e.g. backfilling yesterday's late-night kill after 00:00 without changing the day)
+  if (killedDate.getTime() > Date.now() + 60 * 1000) {
+    return res.status(400).json({
+      error: '击杀时间不能晚于当前实际时间！（若跨零点补录昨日晚间击杀，请将日期修改为昨天）',
+    });
   }
 
   const db = loadDB();
@@ -425,6 +437,11 @@ channelsRouter.put('/:channelNo/records/:recordId', (req: Request, res: Response
   if (killed_at) {
     const killedDate = new Date(killed_at);
     if (!isNaN(killedDate.getTime())) {
+      if (killedDate.getTime() > Date.now() + 60 * 1000) {
+        return res.status(400).json({
+          error: '击杀时间不能晚于当前实际时间！（若跨零点修改昨日晚间击杀，请将日期修改为昨天）',
+        });
+      }
       record.killed_at = killedDate.toISOString();
       const entryMs = killedDate.getTime() + db.boss.entry_interval * 60 * 1000;
       const guaranteedMs = killedDate.getTime() + db.boss.guaranteed_interval * 60 * 1000;
