@@ -655,12 +655,6 @@ export default function App() {
                     <MessageSquareWarning className="w-3.5 h-3.5 text-amber-400" />
                     <span>退单理由记录</span>
                   </button>
-                  <button
-                    onClick={() => setAdminModalOpen(true)}
-                    className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-cyan-950/80 hover:bg-cyan-900/80 border border-cyan-800 text-cyan-300 transition-colors flex items-center gap-1.5 active:scale-95 shadow-sm cursor-pointer"
-                  >
-                    <span>管理员控制中心</span>
-                  </button>
                 </div>
               )}
             </div>

@@ -103,7 +103,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 : 'text-slate-400 hover:text-emerald-300'
             }`}
           >
-            已进入刷时间
+            已进入刷新时间
           </button>
           <button
             onClick={() => onStatusFilterChange('guaranteed_reached')}

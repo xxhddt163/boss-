@@ -294,7 +294,7 @@ export function computeChannelStatus(
     remaining_seconds_entry = Math.max(0, Math.floor((entryMs - nowMs) / 1000));
   } else if (nowMs < guaranteedMs) {
     status = 'in_spawn_window';
-    status_label = '已进入刷时间';
+    status_label = '已进入刷新时间';
     remaining_seconds_guaranteed = Math.max(0, Math.floor((guaranteedMs - nowMs) / 1000));
   } else {
     status = 'guaranteed_reached';

@@ -87,29 +87,33 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-cyan-300 font-semibold">{serverTimeStr || '--:--:--'}</span>
           </div>
 
-          {/* Sound & Female Voice Broadcast Toggle */}
-          <button
-            onClick={toggleSound}
-            title={soundEnabled ? '女声语音播报与音效已开启（点击静音）' : '语音与音效已静音（点击开启）'}
-            className={`px-2.5 py-1.5 rounded-lg border text-xs transition-colors flex items-center gap-1.5 ${
-              soundEnabled
-                ? 'bg-slate-900 border-slate-700 text-cyan-400 hover:bg-slate-800'
-                : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-            <span className="hidden md:inline font-medium text-[11px]">
-              {soundEnabled ? '女声播报' : '已静音'}
-            </span>
-          </button>
+          {/* Sound & Voice Broadcast Toggle (only visible on homepage when logged in) */}
+          {currentUser && (
+            <>
+              <button
+                onClick={toggleSound}
+                title={soundEnabled ? '语音播报与音效已开启（点击静音）' : '语音与音效已静音（点击开启）'}
+                className={`px-2.5 py-1.5 rounded-lg border text-xs transition-colors flex items-center gap-1.5 ${
+                  soundEnabled
+                    ? 'bg-slate-900 border-slate-700 text-cyan-400 hover:bg-slate-800'
+                    : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                <span className="hidden md:inline font-medium text-[11px]">
+                  {soundEnabled ? '语音播报' : '已静音'}
+                </span>
+              </button>
 
-          <button
-            onClick={handleNotificationRequest}
-            title="开启桌面通知提醒"
-            className="hidden sm:inline-flex p-2 rounded-lg border border-slate-800 bg-slate-900/50 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-          >
-            <Bell className="w-4 h-4" />
-          </button>
+              <button
+                onClick={handleNotificationRequest}
+                title="开启桌面通知提醒"
+                className="hidden sm:inline-flex p-2 rounded-lg border border-slate-800 bg-slate-900/50 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+              >
+                <Bell className="w-4 h-4" />
+              </button>
+            </>
+          )}
 
           {/* Admin Control if admin */}
           {currentUser && currentUser.role === 'admin' && (

@@ -54,7 +54,7 @@ export const StatsBar: React.FC<StatsBarProps> = ({
         <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-emerald-950/20 border border-emerald-800/30">
           <div className="flex items-center gap-1.5 text-xs text-emerald-400">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>进入刷时间</span>
+            <span>进入刷新时间</span>
           </div>
           <span className="text-xl font-bold font-mono text-emerald-300 tabular-nums mt-0.5">
             {inSpawn}
