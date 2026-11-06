@@ -43,6 +43,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
   const [collapsed, setCollapsed] = useState<boolean>(false);
   const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null);
   const [hoveredSliceIndex, setHoveredSliceIndex] = useState<number | null>(null);
+  const [hoveredChannelSliceIndex, setHoveredChannelSliceIndex] = useState<number | null>(null);
   const [selectedPeriodKey, setSelectedPeriodKey] = useState<string | null>(null);
   const [memberSearch, setMemberSearch] = useState<string>('');
 
@@ -70,7 +71,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
     }
   }, [lastUpdateTimestamp]);
 
-  // Bar chart active data source (with per-period roleShare)
+  // Bar chart active data source (with per-period roleShare and channelShare)
   const barData = useMemo(() => {
     if (!stats) return [];
     if (timeScale === 'daily') {
@@ -83,6 +84,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
         count: d.count,
         isCurrent: !!d.isToday,
         roleShare: d.roleShare || [],
+        channelShare: d.channelShare || [],
       }));
     } else if (timeScale === 'weekly') {
       return stats.weeklyStats.map((w) => ({
@@ -94,6 +96,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
         count: w.count,
         isCurrent: !!w.isCurrentWeek,
         roleShare: w.roleShare || [],
+        channelShare: w.channelShare || [],
       }));
     } else {
       return stats.monthlyStats.map((m) => ({
@@ -105,11 +108,12 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
         count: m.count,
         isCurrent: !!m.isCurrentMonth,
         roleShare: m.roleShare || [],
+        channelShare: m.channelShare || [],
       }));
     }
   }, [stats, timeScale]);
 
-  // Active period item driving the Pie Chart (defaults to current period: Today / This Week / This Month)
+  // Active period item driving the Pie Charts (defaults to current period: Today / This Week / This Month)
   const activePeriodItem = useMemo(() => {
     if (barData.length === 0) return null;
     if (selectedPeriodKey) {
@@ -120,6 +124,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
   }, [barData, selectedPeriodKey]);
 
   const activeRoleShare = activePeriodItem?.roleShare || [];
+  const activeChannelShare = activePeriodItem?.channelShare || [];
   const activePeriodKills = activePeriodItem?.count || 0;
 
   // Bar chart scaling
@@ -129,16 +134,12 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
     return Math.max(maxVal, 6);
   }, [barData]);
 
-  // Pie chart computation based on activePeriodItem
-  const pieSlices = useMemo(() => {
-    if (!activeRoleShare || activeRoleShare.length === 0) return [];
-    const total = activePeriodKills;
-    if (total === 0) return [];
-
+  // Helper to build SVG donut slices for any share array
+  const buildDonutSlices = <T extends { count: number; color: string }>(items: T[], total: number) => {
+    if (!items || items.length === 0 || total === 0) return [];
     let currentAngle = -Math.PI / 2; // start from top (12 o'clock)
-    return activeRoleShare.map((role) => {
-      const rawAngle = (role.count / total) * 2 * Math.PI;
-      // Clamp slightly below 2*PI so a single 100% role still renders a full SVG arc
+    return items.map((item) => {
+      const rawAngle = (item.count / total) * 2 * Math.PI;
       const sliceAngle = Math.min(rawAngle, 2 * Math.PI - 0.0005);
       const startAngle = currentAngle;
       const endAngle = currentAngle + sliceAngle;
@@ -149,7 +150,6 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
       const cx = 130;
       const cy = 130;
 
-      // Arc coordinates
       const x1 = cx + rOuter * Math.cos(startAngle);
       const y1 = cy + rOuter * Math.sin(startAngle);
       const x2 = cx + rOuter * Math.cos(endAngle);
@@ -162,7 +162,6 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
 
       const largeArcFlag = sliceAngle > Math.PI ? 1 : 0;
 
-      // SVG path definition
       const path = [
         `M ${x1} ${y1}`,
         `A ${rOuter} ${rOuter} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
@@ -172,14 +171,22 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
       ].join(' ');
 
       return {
-        role,
+        item,
         path,
-        startAngle,
-        endAngle,
-        color: role.color,
+        color: item.color,
       };
     });
+  };
+
+  // Role Pie chart computation based on activePeriodItem
+  const pieSlices = useMemo(() => {
+    return buildDonutSlices(activeRoleShare, activePeriodKills);
   }, [activeRoleShare, activePeriodKills]);
+
+  // Channel Pie chart computation based on activePeriodItem
+  const channelPieSlices = useMemo(() => {
+    return buildDonutSlices(activeChannelShare, activePeriodKills);
+  }, [activeChannelShare, activePeriodKills]);
 
   // Filtered member list for ranking table
   const filteredMembers = useMemo(() => {
@@ -379,6 +386,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                         setTimeScale('daily');
                         setSelectedPeriodKey(null);
                         setHoveredSliceIndex(null);
+                        setHoveredChannelSliceIndex(null);
                       }}
                       className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
                         timeScale === 'daily'
@@ -393,6 +401,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                         setTimeScale('weekly');
                         setSelectedPeriodKey(null);
                         setHoveredSliceIndex(null);
+                        setHoveredChannelSliceIndex(null);
                       }}
                       className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
                         timeScale === 'weekly'
@@ -407,6 +416,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                         setTimeScale('monthly');
                         setSelectedPeriodKey(null);
                         setHoveredSliceIndex(null);
+                        setHoveredChannelSliceIndex(null);
                       }}
                       className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
                         timeScale === 'monthly'
@@ -496,6 +506,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                             onClick={() => {
                               setSelectedPeriodKey(item.key);
                               setHoveredSliceIndex(null);
+                              setHoveredChannelSliceIndex(null);
                             }}
                           >
                             {/* Hitbox area for smooth hovering & clicking */}
@@ -650,149 +661,287 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
                 </div>
               </div>
 
-              {/* Right Column (5 cols): Pie / Donut Chart of Role Kill Share */}
-              <div className="lg:col-span-5 rounded-xl bg-slate-950/70 border border-slate-800/90 p-4 sm:p-5 flex flex-col justify-between shadow-inner">
-                {/* Pie Chart Header */}
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <PieIcon className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-xs sm:text-sm font-bold text-white tracking-wide">
-                          角色击杀数占比饼状图
-                        </h3>
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                          {activePeriodItem?.periodTitle || '当前周期'}
-                        </span>
+              {/* Right Column (5 cols): Stacked Role Kill Share & Channel Kill Share Pie Charts */}
+              <div className="lg:col-span-5 flex flex-col gap-5">
+                {/* 1. Role Kill Share Pie Chart */}
+                <div className="rounded-xl bg-slate-950/70 border border-slate-800/90 p-4 sm:p-5 flex flex-col justify-between shadow-inner">
+                  {/* Pie Chart Header */}
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <PieIcon className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-xs sm:text-sm font-bold text-white tracking-wide">
+                            角色击杀数占比饼状图
+                          </h3>
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                            {activePeriodItem?.periodTitle || '当前周期'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          当前展示 <strong className="text-slate-200">{activePeriodItem?.periodTitle || '所选周期'}</strong> 内各角色击杀占比
+                        </p>
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        当前展示 <strong className="text-slate-200">{activePeriodItem?.periodTitle || '所选周期'}</strong> 内各角色击杀占比
-                      </p>
+                    </div>
+                    <div className="flex flex-col items-end shrink-0 gap-1">
+                      <span className="text-[11px] font-mono text-slate-400">
+                        共 <strong className="text-white">{activeRoleShare.length}</strong> 个角色
+                      </span>
+                      {activePeriodItem && !activePeriodItem.isCurrent && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedPeriodKey(null);
+                            setHoveredSliceIndex(null);
+                            setHoveredChannelSliceIndex(null);
+                          }}
+                          className="text-[10px] text-cyan-400 hover:text-cyan-300 underline cursor-pointer"
+                        >
+                          切回{timeScale === 'daily' ? '今日' : timeScale === 'weekly' ? '本周' : '本月'}
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <div className="flex flex-col items-end shrink-0 gap-1">
-                    <span className="text-[11px] font-mono text-slate-400">
-                      共 <strong className="text-white">{activeRoleShare.length}</strong> 个角色
-                    </span>
-                    {activePeriodItem && !activePeriodItem.isCurrent && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedPeriodKey(null);
-                          setHoveredSliceIndex(null);
-                        }}
-                        className="text-[10px] text-cyan-400 hover:text-cyan-300 underline cursor-pointer"
-                      >
-                        切回{timeScale === 'daily' ? '今日' : timeScale === 'weekly' ? '本周' : '本月'}
-                      </button>
-                    )}
-                  </div>
-                </div>
 
-                {/* Donut Chart Visual & Interactive Center */}
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 py-2">
-                  <div className="relative w-56 h-56 shrink-0 flex items-center justify-center">
-                    {activePeriodKills === 0 ? (
-                      <div className="w-48 h-48 rounded-full border-2 border-dashed border-slate-800 flex flex-col items-center justify-center text-center p-4">
-                        <Users className="w-6 h-6 text-slate-600 mb-1" />
-                        <span className="text-xs font-medium text-slate-400">
-                          {activePeriodItem?.shortTitle || '该周期'}暂无击杀记录
-                        </span>
-                        <span className="text-[10px] text-slate-600 mt-0.5">可点击左侧其他柱条查看</span>
-                      </div>
-                    ) : (
-                      <svg className="w-56 h-56 transform -rotate-90 select-none" viewBox="0 0 260 260">
-                        {pieSlices.map((slice, idx) => {
+                  {/* Donut Chart Visual & Interactive Center */}
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4 py-2">
+                    <div className="relative w-56 h-56 shrink-0 flex items-center justify-center">
+                      {activePeriodKills === 0 ? (
+                        <div className="w-48 h-48 rounded-full border-2 border-dashed border-slate-800 flex flex-col items-center justify-center text-center p-4">
+                          <Users className="w-6 h-6 text-slate-600 mb-1" />
+                          <span className="text-xs font-medium text-slate-400">
+                            {activePeriodItem?.shortTitle || '该周期'}暂无击杀记录
+                          </span>
+                          <span className="text-[10px] text-slate-600 mt-0.5">可点击左侧其他柱条查看</span>
+                        </div>
+                      ) : (
+                        <svg className="w-56 h-56 transform -rotate-90 select-none" viewBox="0 0 260 260">
+                          {pieSlices.map((slice, idx) => {
+                            const isHovered = hoveredSliceIndex === idx;
+                            return (
+                              <path
+                                key={slice.item.game_id}
+                                d={slice.path}
+                                fill={slice.color}
+                                stroke="#020617"
+                                strokeWidth={isHovered ? 3 : 1.5}
+                                className="cursor-pointer transition-all duration-200"
+                                opacity={hoveredSliceIndex === null || isHovered ? 1 : 0.45}
+                                onMouseEnter={() => setHoveredSliceIndex(idx)}
+                                onMouseLeave={() => setHoveredSliceIndex(null)}
+                              />
+                            );
+                          })}
+                        </svg>
+                      )}
+
+                      {/* Donut Center Display */}
+                      {activePeriodKills > 0 && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-4">
+                          {hoveredSliceIndex !== null && activeRoleShare[hoveredSliceIndex] ? (
+                            <>
+                              <span className="text-[11px] font-bold text-slate-300 truncate max-w-[110px]">
+                                {activeRoleShare[hoveredSliceIndex].game_id}
+                              </span>
+                              <span className="text-xl font-extrabold font-mono text-white mt-0.5">
+                                {activeRoleShare[hoveredSliceIndex].percentage}%
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {activeRoleShare[hoveredSliceIndex].count} 次击杀
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-[10px] uppercase tracking-wider text-amber-300/90 font-semibold truncate max-w-[110px]">
+                                {activePeriodItem?.shortTitle || '当前'}击杀量
+                              </span>
+                              <span className="text-2xl font-extrabold font-mono text-white mt-0.5">
+                                {activePeriodKills}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {activeRoleShare.length} 位参与角色
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Legend on Right / Bottom */}
+                    <div className="flex-1 w-full max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                      {activeRoleShare.length === 0 ? (
+                        <p className="text-xs text-slate-500 text-center py-4">该周期暂无角色数据</p>
+                      ) : (
+                        activeRoleShare.map((role, idx) => {
                           const isHovered = hoveredSliceIndex === idx;
                           return (
-                            <path
-                              key={slice.role.game_id}
-                              d={slice.path}
-                              fill={slice.color}
-                              stroke="#020617"
-                              strokeWidth={isHovered ? 3 : 1.5}
-                              className="cursor-pointer transition-all duration-200"
-                              opacity={hoveredSliceIndex === null || isHovered ? 1 : 0.45}
+                            <div
+                              key={role.game_id}
                               onMouseEnter={() => setHoveredSliceIndex(idx)}
                               onMouseLeave={() => setHoveredSliceIndex(null)}
-                            />
+                              className={`flex items-center justify-between p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+                                isHovered ? 'bg-slate-800/90 text-white' : 'hover:bg-slate-900 text-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                                  style={{ backgroundColor: role.color }}
+                                />
+                                <span className="truncate font-medium">{role.game_id}</span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0 font-mono text-[11px]">
+                                <span className="text-slate-400">{role.count}次</span>
+                                <span className="font-bold text-cyan-300 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                                  {role.percentage}%
+                                </span>
+                              </div>
+                            </div>
                           );
-                        })}
-                      </svg>
-                    )}
-
-                    {/* Donut Center Display */}
-                    {activePeriodKills > 0 && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-4">
-                        {hoveredSliceIndex !== null && activeRoleShare[hoveredSliceIndex] ? (
-                          <>
-                            <span className="text-[11px] font-bold text-slate-300 truncate max-w-[110px]">
-                              {activeRoleShare[hoveredSliceIndex].game_id}
-                            </span>
-                            <span className="text-xl font-extrabold font-mono text-white mt-0.5">
-                              {activeRoleShare[hoveredSliceIndex].percentage}%
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              {activeRoleShare[hoveredSliceIndex].count} 次击杀
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="text-[10px] uppercase tracking-wider text-amber-300/90 font-semibold truncate max-w-[110px]">
-                              {activePeriodItem?.shortTitle || '当前'}击杀量
-                            </span>
-                            <span className="text-2xl font-extrabold font-mono text-white mt-0.5">
-                              {activePeriodKills}
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              {activeRoleShare.length} 位参与角色
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    )}
+                        })
+                      )}
+                    </div>
                   </div>
 
-                  {/* Legend on Right / Bottom */}
-                  <div className="flex-1 w-full max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                    {activeRoleShare.length === 0 ? (
-                      <p className="text-xs text-slate-500 text-center py-4">该周期暂无角色数据</p>
-                    ) : (
-                      activeRoleShare.map((role, idx) => {
-                        const isHovered = hoveredSliceIndex === idx;
-                        return (
-                          <div
-                            key={role.game_id}
-                            onMouseEnter={() => setHoveredSliceIndex(idx)}
-                            onMouseLeave={() => setHoveredSliceIndex(null)}
-                            className={`flex items-center justify-between p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
-                              isHovered ? 'bg-slate-800/90 text-white' : 'hover:bg-slate-900 text-slate-300'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span
-                                className="w-2.5 h-2.5 rounded-full shrink-0"
-                                style={{ backgroundColor: role.color }}
-                              />
-                              <span className="truncate font-medium">{role.game_id}</span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0 font-mono text-[11px]">
-                              <span className="text-slate-400">{role.count}次</span>
-                              <span className="font-bold text-cyan-300 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
-                                {role.percentage}%
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
+                  {/* Footer notes */}
+                  <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-500">
+                    <span>点击左侧条形图可切换周期</span>
+                    <span className="font-mono">当前合计: {activePeriodKills} 次击杀</span>
                   </div>
                 </div>
 
-                {/* Footer notes */}
-                <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-500">
-                  <span>点击左侧条形图可切换周期</span>
-                  <span className="font-mono">当前合计: {activePeriodKills} 次击杀</span>
+                {/* 2. Channel Kill Share Pie Chart (Below Role Pie Chart) */}
+                <div className="rounded-xl bg-slate-950/70 border border-slate-800/90 p-4 sm:p-5 flex flex-col justify-between shadow-inner">
+                  {/* Channel Pie Chart Header */}
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <PieIcon className="w-4 h-4 text-cyan-400 shrink-0" />
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-xs sm:text-sm font-bold text-white tracking-wide">
+                            频道击杀数占比饼状图
+                          </h3>
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                            {activePeriodItem?.periodTitle || '当前周期'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          当前展示 <strong className="text-slate-200">{activePeriodItem?.periodTitle || '所选周期'}</strong> 内各频道击杀占比
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end shrink-0 gap-1">
+                      <span className="text-[11px] font-mono text-slate-400">
+                        共 <strong className="text-white">{activeChannelShare.length}</strong> 个频道
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Donut Chart Visual & Interactive Center */}
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4 py-2">
+                    <div className="relative w-56 h-56 shrink-0 flex items-center justify-center">
+                      {activePeriodKills === 0 ? (
+                        <div className="w-48 h-48 rounded-full border-2 border-dashed border-slate-800 flex flex-col items-center justify-center text-center p-4">
+                          <PieIcon className="w-6 h-6 text-slate-600 mb-1" />
+                          <span className="text-xs font-medium text-slate-400">
+                            {activePeriodItem?.shortTitle || '该周期'}暂无频道击杀
+                          </span>
+                          <span className="text-[10px] text-slate-600 mt-0.5">可点击左侧其他柱条查看</span>
+                        </div>
+                      ) : (
+                        <svg className="w-56 h-56 transform -rotate-90 select-none" viewBox="0 0 260 260">
+                          {channelPieSlices.map((slice, idx) => {
+                            const isHovered = hoveredChannelSliceIndex === idx;
+                            return (
+                              <path
+                                key={slice.item.channel_no}
+                                d={slice.path}
+                                fill={slice.color}
+                                stroke="#020617"
+                                strokeWidth={isHovered ? 3 : 1.5}
+                                className="cursor-pointer transition-all duration-200"
+                                opacity={hoveredChannelSliceIndex === null || isHovered ? 1 : 0.45}
+                                onMouseEnter={() => setHoveredChannelSliceIndex(idx)}
+                                onMouseLeave={() => setHoveredChannelSliceIndex(null)}
+                              />
+                            );
+                          })}
+                        </svg>
+                      )}
+
+                      {/* Donut Center Display */}
+                      {activePeriodKills > 0 && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-4">
+                          {hoveredChannelSliceIndex !== null && activeChannelShare[hoveredChannelSliceIndex] ? (
+                            <>
+                              <span className="text-[11px] font-bold text-cyan-300 truncate max-w-[110px]">
+                                {activeChannelShare[hoveredChannelSliceIndex].label}
+                              </span>
+                              <span className="text-xl font-extrabold font-mono text-white mt-0.5">
+                                {activeChannelShare[hoveredChannelSliceIndex].percentage}%
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {activeChannelShare[hoveredChannelSliceIndex].count} 次击杀
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-[10px] uppercase tracking-wider text-cyan-300/90 font-semibold truncate max-w-[110px]">
+                                {activePeriodItem?.shortTitle || '当前'}击杀量
+                              </span>
+                              <span className="text-2xl font-extrabold font-mono text-white mt-0.5">
+                                {activePeriodKills}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {activeChannelShare.length} 个出怪频道
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Channel Legend on Right / Bottom */}
+                    <div className="flex-1 w-full max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                      {activeChannelShare.length === 0 ? (
+                        <p className="text-xs text-slate-500 text-center py-4">该周期暂无频道数据</p>
+                      ) : (
+                        activeChannelShare.map((ch, idx) => {
+                          const isHovered = hoveredChannelSliceIndex === idx;
+                          return (
+                            <div
+                              key={ch.channel_no}
+                              onMouseEnter={() => setHoveredChannelSliceIndex(idx)}
+                              onMouseLeave={() => setHoveredChannelSliceIndex(null)}
+                              className={`flex items-center justify-between p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+                                isHovered ? 'bg-slate-800/90 text-white' : 'hover:bg-slate-900 text-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                                  style={{ backgroundColor: ch.color }}
+                                />
+                                <span className="truncate font-mono font-bold">{ch.label}</span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0 font-mono text-[11px]">
+                                <span className="text-slate-400">{ch.count}次</span>
+                                <span className="font-bold text-cyan-300 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                                  {ch.percentage}%
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Footer notes */}
+                  <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-500">
+                    <span>点击左侧条形图可切换周期</span>
+                    <span className="font-mono">当前合计: {activePeriodKills} 次击杀</span>
+                  </div>
                 </div>
               </div>
             </div>

@@ -672,6 +672,7 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
       count: number;
       isToday: boolean;
       roleCounts: Map<string, { game_id: string; username: string; count: number }>;
+      channelCounts: Map<number, number>;
     }
   >();
   for (let i = 13; i >= 0; i--) {
@@ -683,6 +684,7 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
       count: 0,
       isToday: p.dateKey === todayDateKey,
       roleCounts: new Map(),
+      channelCounts: new Map(),
     });
   }
 
@@ -696,6 +698,7 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
       count: number;
       isCurrentWeek: boolean;
       roleCounts: Map<string, { game_id: string; username: string; count: number }>;
+      channelCounts: Map<number, number>;
     }
   >();
   for (let w = 7; w >= 0; w--) {
@@ -709,6 +712,7 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
         count: 0,
         isCurrentWeek: wInfo.weekKey === thisWeekKey,
         roleCounts: new Map(),
+        channelCounts: new Map(),
       });
     }
   }
@@ -723,6 +727,7 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
       count: number;
       isCurrentMonth: boolean;
       roleCounts: Map<string, { game_id: string; username: string; count: number }>;
+      channelCounts: Map<number, number>;
     }
   >();
   for (let m = 5; m >= 0; m--) {
@@ -735,6 +740,7 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
       count: 0,
       isCurrentMonth: mParts.monthKey === thisMonthKey,
       roleCounts: new Map(),
+      channelCounts: new Map(),
     });
   }
 
@@ -758,6 +764,8 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
     lastChannelNo?: number;
   }>();
 
+  const overallChannelCounts = new Map<number, number>();
+
   let todayKills = 0;
   let yesterdayKills = 0;
   let thisWeekKills = 0;
@@ -779,6 +787,12 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
     }
   };
 
+  // Helper to increment channel count in a period bucket
+  const addChannelToBucket = (channelCounts: Map<number, number>, channelNo: number) => {
+    if (!channelNo || isNaN(channelNo)) return;
+    channelCounts.set(channelNo, (channelCounts.get(channelNo) || 0) + 1);
+  };
+
   // Process all valid kills
   for (const record of validKills) {
     const kDate = new Date(record.killed_at);
@@ -789,11 +803,14 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
     const u = record.created_by_user_id ? userMap.get(record.created_by_user_id) : userMap.get(record.created_by);
     const resolvedUsername = u?.username || record.created_by || charName;
 
+    addChannelToBucket(overallChannelCounts, record.channel_no);
+
     // 1. Daily
     if (dailyStatsMap.has(kParts.dateKey)) {
       const dayBucket = dailyStatsMap.get(kParts.dateKey)!;
       dayBucket.count += 1;
       addRoleToBucket(dayBucket.roleCounts, charName, resolvedUsername);
+      addChannelToBucket(dayBucket.channelCounts, record.channel_no);
     }
     if (kParts.dateKey === todayDateKey) {
       todayKills += 1;
@@ -806,6 +823,7 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
       const weekBucket = weeklyStatsMap.get(kWInfo.weekKey)!;
       weekBucket.count += 1;
       addRoleToBucket(weekBucket.roleCounts, charName, resolvedUsername);
+      addChannelToBucket(weekBucket.channelCounts, record.channel_no);
     }
     if (kWInfo.weekKey === thisWeekKey) {
       thisWeekKills += 1;
@@ -818,6 +836,7 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
       const monthBucket = monthlyStatsMap.get(kParts.monthKey)!;
       monthBucket.count += 1;
       addRoleToBucket(monthBucket.roleCounts, charName, resolvedUsername);
+      addChannelToBucket(monthBucket.channelCounts, record.channel_no);
     }
     if (kParts.monthKey === thisMonthKey) {
       thisMonthKills += 1;
@@ -880,6 +899,24 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
     }));
   };
 
+  // Helper to convert a bucket's channelCounts map into sorted ChannelKillShare[]
+  const buildBucketChannelShare = (
+    channelCounts: Map<number, number>,
+    bucketTotal: number
+  ) => {
+    const list = Array.from(channelCounts.entries())
+      .map(([channel_no, count]) => ({ channel_no, count }))
+      .sort((a, b) => (b.count !== a.count ? b.count - a.count : a.channel_no - b.channel_no));
+
+    return list.map((item, idx) => ({
+      channel_no: item.channel_no,
+      label: `${item.channel_no}频道`,
+      count: item.count,
+      percentage: bucketTotal > 0 ? Math.round((item.count / bucketTotal) * 1000) / 10 : 0,
+      color: STAT_PALETTE[idx % STAT_PALETTE.length],
+    }));
+  };
+
   // Pie chart role share data (overall fallback)
   const roleShare = memberStats.map((m) => ({
     game_id: m.game_id,
@@ -888,6 +925,8 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
     percentage: m.percentage,
     color: m.color,
   }));
+
+  const channelShare = buildBucketChannelShare(overallChannelCounts, totalKills);
 
   const payload = {
     totalKills,
@@ -898,19 +937,23 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
     thisMonthKills,
     lastMonthKills,
     uniqueKillersCount: memberStats.length,
-    dailyStats: Array.from(dailyStatsMap.values()).map(({ roleCounts, ...rest }) => ({
+    dailyStats: Array.from(dailyStatsMap.values()).map(({ roleCounts, channelCounts, ...rest }) => ({
       ...rest,
       roleShare: buildBucketRoleShare(roleCounts, rest.count),
+      channelShare: buildBucketChannelShare(channelCounts, rest.count),
     })),
-    weeklyStats: Array.from(weeklyStatsMap.values()).map(({ roleCounts, ...rest }) => ({
+    weeklyStats: Array.from(weeklyStatsMap.values()).map(({ roleCounts, channelCounts, ...rest }) => ({
       ...rest,
       roleShare: buildBucketRoleShare(roleCounts, rest.count),
+      channelShare: buildBucketChannelShare(channelCounts, rest.count),
     })),
-    monthlyStats: Array.from(monthlyStatsMap.values()).map(({ roleCounts, ...rest }) => ({
+    monthlyStats: Array.from(monthlyStatsMap.values()).map(({ roleCounts, channelCounts, ...rest }) => ({
       ...rest,
       roleShare: buildBucketRoleShare(roleCounts, rest.count),
+      channelShare: buildBucketChannelShare(channelCounts, rest.count),
     })),
     roleShare,
+    channelShare,
     memberStats,
   };
 

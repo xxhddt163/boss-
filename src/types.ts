@@ -98,12 +98,21 @@ export interface RoleKillShare {
   color: string;
 }
 
+export interface ChannelKillShare {
+  channel_no: number;
+  label: string; // e.g. "1频道"
+  count: number;
+  percentage: number;
+  color: string;
+}
+
 export interface DailyKillStat {
   date: string; // YYYY-MM-DD
   label: string; // MM-DD
   count: number;
   isToday?: boolean;
   roleShare: RoleKillShare[];
+  channelShare: ChannelKillShare[];
 }
 
 export interface WeeklyKillStat {
@@ -113,6 +122,7 @@ export interface WeeklyKillStat {
   count: number;
   isCurrentWeek?: boolean;
   roleShare: RoleKillShare[];
+  channelShare: ChannelKillShare[];
 }
 
 export interface MonthlyKillStat {
@@ -122,6 +132,7 @@ export interface MonthlyKillStat {
   count: number;
   isCurrentMonth?: boolean;
   roleShare: RoleKillShare[];
+  channelShare: ChannelKillShare[];
 }
 
 export interface MemberKillStat {
@@ -151,6 +162,7 @@ export interface KillStatsData {
   weeklyStats: WeeklyKillStat[];
   monthlyStats: MonthlyKillStat[];
   roleShare: RoleKillShare[];
+  channelShare: ChannelKillShare[];
   memberStats: MemberKillStat[];
 }
 
