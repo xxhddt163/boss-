@@ -45,6 +45,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({ onClose, onDataChanged }
   const [logs, setLogs] = useState<OperationLog[]>([]);
   const [logSearchAction, setLogSearchAction] = useState<string>('');
   const [logSearchUser, setLogSearchUser] = useState<string>('');
+  const [logSearchChannel, setLogSearchChannel] = useState<string>('');
+  const [logPageSize, setLogPageSize] = useState<number>(200); // 0 means show all
+  const [logCurrentPage, setLogCurrentPage] = useState<number>(1);
 
   // 4. Backups state
   const [backups, setBackups] = useState<{ name: string; size: number; created_at: string }[]>([]);
@@ -74,14 +77,20 @@ export const AdminModal: React.FC<AdminModalProps> = ({ onClose, onDataChanged }
     }
   };
 
-  const loadLogs = async () => {
+  const loadLogs = async (overrides?: { action?: string; user?: string; channel?: string }) => {
     try {
       setLoading(true);
+      const actVal = overrides?.action !== undefined ? overrides.action : logSearchAction;
+      const usrVal = overrides?.user !== undefined ? overrides.user : logSearchUser;
+      const chVal = overrides?.channel !== undefined ? overrides.channel : logSearchChannel;
+      const parsedCh = chVal ? parseInt(chVal, 10) : undefined;
       const res = await api.getAuditLogs({
-        action: logSearchAction,
-        username: logSearchUser,
+        action: actVal || undefined,
+        username: usrVal || undefined,
+        channel_no: parsedCh && !isNaN(parsedCh) ? parsedCh : undefined,
       });
-      setLogs(res.logs);
+      setLogs(res.logs || []);
+      setLogCurrentPage(1);
     } catch (err: any) {
       setErrorMsg(err.message || '加载日志失败');
     } finally {
@@ -538,66 +547,243 @@ export const AdminModal: React.FC<AdminModalProps> = ({ onClose, onDataChanged }
           )}
 
           {/* TAB 3: Audit Logs */}
-          {activeTab === 'logs' && (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-bold text-white">操作审计日志</h3>
-                  <p className="text-slate-400 text-[11px]">
-                    记录所有击杀录入、修改、撤销、恢复、并发点击及用户权限变更历史。
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={logSearchAction}
-                    onChange={(e) => setLogSearchAction(e.target.value)}
-                    placeholder="按操作动作筛选..."
-                    className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-xs"
-                  />
-                  <button
-                    onClick={loadLogs}
-                    className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded"
-                  >
-                    查询
-                  </button>
-                </div>
-              </div>
+          {activeTab === 'logs' && (() => {
+            const ACTION_LABELS: Record<string, string> = {
+              KILL_RECORD_CREATE: '击杀登记',
+              KILL_RECORD_BACKFILL: '手动补录',
+              KILL_RECORD_EDIT: '修改记录',
+              KILL_RECORD_VOID: '撤销记录',
+              KILL_RECORD_RESTORE: '恢复记录',
+              CONCURRENT_KILL_CLICK: '多人并发点击',
+              CHANNEL_VISIT: '频道接单',
+              CHANNEL_LEAVE: '频道退单',
+              CHANNEL_RESET: '管理员重置频道',
+              CHANNEL_TAG_UPDATE: '更新频道标签',
+              CHANNEL_NOTE_UPDATE: '更新长期备注',
+              USER_LOGIN: '用户登录',
+              USER_REGISTER: '申请注册',
+              USER_PASSWORD_CHANGE: '修改密码',
+              ADMIN_USER_STATUS_CHANGE: '审核/状态变更',
+              ADMIN_USER_BATCH_APPROVE: '批量审核通过',
+              ADMIN_USER_PROFILE_UPDATE: '修改用户资料',
+              ADMIN_BOSS_CONFIG_UPDATE: '修改刷新规则',
+              ADMIN_SETTINGS_UPDATE: '修改系统设置',
+              ADMIN_DB_IMPORT: '导入数据库',
+              ADMIN_DB_RESET: '清空重置数据库',
+            };
 
-              <div className="overflow-x-auto rounded-xl border border-slate-800">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-950/80 text-slate-400 border-b border-slate-800">
-                      <th className="py-2 px-3 font-semibold">时间</th>
-                      <th className="py-2 px-3 font-semibold">操作用户</th>
-                      <th className="py-2 px-3 font-semibold">频道</th>
-                      <th className="py-2 px-3 font-semibold">操作类型</th>
-                      <th className="py-2 px-3 font-semibold">关键变更细节</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60 bg-slate-950/30 text-[11px]">
-                    {logs.map((l) => (
-                      <tr key={l.id} className="hover:bg-slate-900/60">
-                        <td className="py-2 px-3 font-mono text-slate-400 whitespace-nowrap">
-                          {formatBeijing(l.created_at)}
-                        </td>
-                        <td className="py-2 px-3 font-semibold text-cyan-300">{l.username}</td>
-                        <td className="py-2 px-3 font-mono text-slate-300">
-                          {l.channel_no ? `${l.channel_no}频道` : '--'}
-                        </td>
-                        <td className="py-2 px-3 font-mono font-semibold text-purple-300">
-                          {l.action}
-                        </td>
-                        <td className="py-2 px-3 text-slate-300 max-w-md truncate">
-                          {l.new_data ? JSON.stringify(l.new_data) : l.old_data ? JSON.stringify(l.old_data) : '--'}
-                        </td>
+            const totalLogs = logs.length;
+            const totalPages = logPageSize > 0 ? Math.max(1, Math.ceil(totalLogs / logPageSize)) : 1;
+            const safePage = Math.min(logCurrentPage, totalPages);
+            const displayedLogs =
+              logPageSize > 0
+                ? logs.slice((safePage - 1) * logPageSize, safePage * logPageSize)
+                : logs;
+
+            return (
+              <div className="space-y-4">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/80">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-white">全量操作审计日志</h3>
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-cyan-950 text-cyan-300 border border-cyan-800/70">
+                        共 {totalLogs} 条记录
+                      </span>
+                    </div>
+                    <p className="text-slate-400 text-[11px] mt-0.5">
+                      完整记录所有击杀录入、补录、修改、撤销、接单、退单、登录及管理员操作历史（无 100 条截断限制）。
+                    </p>
+                  </div>
+
+                  {/* Filters Bar */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={logSearchAction}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setLogSearchAction(val);
+                        loadLogs({ action: val });
+                      }}
+                      className="bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 cursor-pointer"
+                    >
+                      <option value="">全部操作类型</option>
+                      <option value="KILL_RECORD">全部击杀相关 (登记/补录/改/撤)</option>
+                      <option value="KILL_RECORD_CREATE">击杀登记 (KILL_RECORD_CREATE)</option>
+                      <option value="KILL_RECORD_BACKFILL">手动补录 (KILL_RECORD_BACKFILL)</option>
+                      <option value="KILL_RECORD_EDIT">修改记录 (KILL_RECORD_EDIT)</option>
+                      <option value="KILL_RECORD_VOID">撤销记录 (KILL_RECORD_VOID)</option>
+                      <option value="CHANNEL_VISIT">频道接单 (CHANNEL_VISIT)</option>
+                      <option value="CHANNEL_LEAVE">频道退单 (CHANNEL_LEAVE)</option>
+                      <option value="CHANNEL_RESET">重置频道 (CHANNEL_RESET)</option>
+                      <option value="CHANNEL_TAG_UPDATE">频道标签 (CHANNEL_TAG_UPDATE)</option>
+                      <option value="USER_LOGIN">用户登录 (USER_LOGIN)</option>
+                      <option value="ADMIN_">管理员操作 (ADMIN_*)</option>
+                    </select>
+
+                    <select
+                      value={logSearchChannel}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setLogSearchChannel(val);
+                        loadLogs({ channel: val });
+                      }}
+                      className="bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 cursor-pointer"
+                    >
+                      <option value="">全部频道</option>
+                      {Array.from({ length: 60 }, (_, i) => i + 1).map((ch) => (
+                        <option key={ch} value={String(ch)}>
+                          {ch} 频道
+                        </option>
+                      ))}
+                    </select>
+
+                    <input
+                      type="text"
+                      value={logSearchUser}
+                      onChange={(e) => setLogSearchUser(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') loadLogs();
+                      }}
+                      placeholder="按账号 / 角色名搜索..."
+                      className="bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 w-40"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => loadLogs()}
+                      className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                    >
+                      查询
+                    </button>
+
+                    {(logSearchAction || logSearchUser || logSearchChannel) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLogSearchAction('');
+                          setLogSearchUser('');
+                          setLogSearchChannel('');
+                          loadLogs({ action: '', user: '', channel: '' });
+                        }}
+                        className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs transition-colors cursor-pointer"
+                      >
+                        重置
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Pagination & Page Size Toolbar */}
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 px-1">
+                  <div className="flex items-center gap-2">
+                    <span>显示范围：</span>
+                    <select
+                      value={logPageSize}
+                      onChange={(e) => {
+                        setLogPageSize(parseInt(e.target.value, 10));
+                        setLogCurrentPage(1);
+                      }}
+                      className="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200 cursor-pointer"
+                    >
+                      <option value={100}>每页 100 条</option>
+                      <option value={200}>每页 200 条</option>
+                      <option value={500}>每页 500 条</option>
+                      <option value={0}>不分页（一次显示全部 {totalLogs} 条）</option>
+                    </select>
+                    <span className="text-slate-500">
+                      当前显示 <strong className="text-slate-200 font-mono">{displayedLogs.length}</strong> 条
+                    </span>
+                  </div>
+
+                  {logPageSize > 0 && totalPages > 1 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={safePage <= 1}
+                        onClick={() => setLogCurrentPage((p) => Math.max(1, p - 1))}
+                        className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        上一页
+                      </button>
+                      <span className="font-mono text-slate-300">
+                        第 <strong>{safePage}</strong> / {totalPages} 页
+                      </span>
+                      <button
+                        type="button"
+                        disabled={safePage >= totalPages}
+                        onClick={() => setLogCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        下一页
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-800">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-950/80 text-slate-400 border-b border-slate-800 text-xs">
+                        <th className="py-2.5 px-3 font-semibold whitespace-nowrap">时间 (北京时间)</th>
+                        <th className="py-2.5 px-3 font-semibold whitespace-nowrap">操作账号</th>
+                        <th className="py-2.5 px-3 font-semibold whitespace-nowrap">频道</th>
+                        <th className="py-2.5 px-3 font-semibold whitespace-nowrap">操作类型</th>
+                        <th className="py-2.5 px-3 font-semibold">完整变更细节</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 bg-slate-950/30 text-[11px]">
+                      {displayedLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-10 text-center text-slate-500">
+                            暂无匹配的操作审计日志记录
+                          </td>
+                        </tr>
+                      ) : (
+                        displayedLogs.map((l) => {
+                          const cnLabel = ACTION_LABELS[l.action];
+                          const detailText =
+                            l.old_data && l.new_data
+                              ? `变更前: ${JSON.stringify(l.old_data)} → 变更后: ${JSON.stringify(l.new_data)}`
+                              : l.new_data
+                              ? JSON.stringify(l.new_data)
+                              : l.old_data
+                              ? JSON.stringify(l.old_data)
+                              : '--';
+
+                          return (
+                            <tr key={l.id} className="hover:bg-slate-900/60 align-top">
+                              <td className="py-2 px-3 font-mono text-slate-400 whitespace-nowrap">
+                                {formatBeijing(l.created_at)}
+                              </td>
+                              <td className="py-2 px-3 font-semibold text-cyan-300 whitespace-nowrap">
+                                {l.username}
+                              </td>
+                              <td className="py-2 px-3 font-mono text-slate-300 whitespace-nowrap">
+                                {l.channel_no ? `${l.channel_no}频道` : '--'}
+                              </td>
+                              <td className="py-2 px-3 whitespace-nowrap">
+                                <div className="flex flex-col">
+                                  {cnLabel && (
+                                    <span className="font-bold text-purple-300">{cnLabel}</span>
+                                  )}
+                                  <span className="font-mono text-[10px] text-slate-400">
+                                    {l.action}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="py-2 px-3 text-slate-300 font-mono break-all whitespace-pre-wrap leading-relaxed">
+                                {detailText}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* TAB 4: Backup & Restore */}
           {activeTab === 'backup' && (

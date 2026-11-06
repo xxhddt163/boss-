@@ -364,7 +364,7 @@ adminRouter.put('/boss', (req: Request, res: Response) => {
   return res.json({ success: true, boss: db.boss });
 });
 
-// 5. Audit logs
+// 5. Audit logs (return full matching logs without 100-item truncation)
 adminRouter.get('/logs', (req: Request, res: Response) => {
   const admin = requireAdmin(req, res);
   if (!admin) return;
@@ -372,20 +372,45 @@ adminRouter.get('/logs', (req: Request, res: Response) => {
   const db = loadDB();
   const { action, username, channel_no, limit } = req.query;
 
+  // Map user_id/username -> game_id so admin can search by either username or game_id
+  const userGameIdMap = new Map<string, string>();
+  for (const u of db.users) {
+    userGameIdMap.set(u.id, u.game_id);
+    userGameIdMap.set(u.username, u.game_id);
+  }
+
   let filtered = db.operation_logs;
 
   if (action) {
-    filtered = filtered.filter((l) => l.action.toLowerCase().includes(String(action).toLowerCase()));
+    const actQuery = String(action).trim().toLowerCase();
+    filtered = filtered.filter((l) => l.action.toLowerCase().includes(actQuery));
   }
   if (username) {
-    filtered = filtered.filter((l) => l.username.toLowerCase().includes(String(username).toLowerCase()));
+    const userQuery = String(username).trim().toLowerCase();
+    filtered = filtered.filter((l) => {
+      const uName = (l.username || '').toLowerCase();
+      const gId = (
+        l.new_data?.game_id ||
+        l.old_data?.game_id ||
+        userGameIdMap.get(l.user_id) ||
+        userGameIdMap.get(l.username) ||
+        ''
+      )
+        .toString()
+        .toLowerCase();
+      return uName.includes(userQuery) || gId.includes(userQuery);
+    });
   }
   if (channel_no) {
-    filtered = filtered.filter((l) => l.channel_no === parseInt(String(channel_no), 10));
+    const chNum = parseInt(String(channel_no), 10);
+    if (!isNaN(chNum)) {
+      filtered = filtered.filter((l) => l.channel_no === chNum);
+    }
   }
 
-  const max = limit ? parseInt(String(limit), 10) : 100;
-  res.json({ logs: filtered.slice(0, max) });
+  const max = limit ? parseInt(String(limit), 10) : 0;
+  const resultLogs = max > 0 ? filtered.slice(0, max) : filtered;
+  res.json({ totalCount: filtered.length, logs: resultLogs });
 });
 
 // 6. Update system settings

@@ -411,9 +411,9 @@ export function logOperation(params: {
   };
 
   db.operation_logs.unshift(log);
-  // Keep last 3000 logs
-  if (db.operation_logs.length > 3000) {
-    db.operation_logs.length = 3000;
+  // Keep up to 50000 logs for full audit history
+  if (db.operation_logs.length > 50000) {
+    db.operation_logs.length = 50000;
   }
   scheduleSave();
   return log;
