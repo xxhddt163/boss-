@@ -25,6 +25,7 @@ interface ChannelRowProps {
   onReset?: (channelNo: number) => void;
   onUpdateTag: (channelNo: number, tag: string) => void;
   isActionLoading?: boolean;
+  miniMode?: boolean;
 }
 
 const AVAILABLE_TAGS = [
@@ -44,6 +45,7 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
   onReset,
   onUpdateTag,
   isActionLoading = false,
+  miniMode = false,
 }) => {
   const countdown = calculateLiveCountdown(channel, serverTime);
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
@@ -163,7 +165,9 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
 
   return (
     <div
-      className={`w-full mb-2 rounded-xl border transition-all duration-200 px-2.5 sm:px-3.5 py-2 shadow-sm relative min-w-[860px] ${
+      className={`${
+        miniMode ? 'w-fit last:mb-0' : 'w-full min-w-[860px]'
+      } mb-2 rounded-xl border transition-all duration-200 px-2.5 sm:px-3.5 py-2 shadow-sm relative ${
         tagDropdownOpen ? 'z-50 ring-1 ring-cyan-500/50' : 'z-0'
       } ${
         isMyVisiting || hasVisitors
@@ -330,8 +334,8 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
           )}
         </div>
 
-        {/* 8. 频道长期备注 (Column flex-1 min-w-[50px]) - 普通用户可点击修改或添加 */}
-        <div className="flex-1 min-w-[50px] truncate">
+        {/* 8. 频道长期备注 (Column flex-1 min-w-[50px] or w-28 in miniMode) - 普通用户可点击修改或添加 */}
+        <div className={miniMode ? 'w-28 shrink-0 truncate' : 'flex-1 min-w-[50px] truncate'}>
           <button
             type="button"
             onClick={() => onOpenHistory(channel.channel_no)}

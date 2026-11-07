@@ -1,8 +1,16 @@
 import React from 'react';
 
-export const ChannelTableHeader: React.FC = () => {
+interface ChannelTableHeaderProps {
+  miniMode?: boolean;
+}
+
+export const ChannelTableHeader: React.FC<ChannelTableHeaderProps> = ({ miniMode = false }) => {
   return (
-    <div className="sticky top-0 z-20 bg-slate-900/98 backdrop-blur-md border border-slate-800 rounded-lg px-2.5 sm:px-3.5 py-2 mb-2 shadow-md w-full min-w-[860px] text-xs font-semibold text-slate-300 select-none">
+    <div
+      className={`sticky top-0 z-20 bg-slate-900/98 backdrop-blur-md border border-slate-800 rounded-lg px-2.5 sm:px-3.5 py-2 mb-2 shadow-md text-xs font-semibold text-slate-300 select-none ${
+        miniMode ? 'w-fit' : 'w-full min-w-[860px]'
+      }`}
+    >
       <div className="flex items-center gap-1.5 sm:gap-2.5">
         {/* 1. 频道号 */}
         <div className="w-18 sm:w-22 shrink-0 text-slate-300 font-bold">
@@ -40,7 +48,7 @@ export const ChannelTableHeader: React.FC = () => {
         </div>
 
         {/* 8. 频道长期备注 */}
-        <div className="flex-1 min-w-[50px] text-amber-300">
+        <div className={miniMode ? 'w-28 shrink-0 text-amber-300' : 'flex-1 min-w-[50px] text-amber-300'}>
           长期备注
         </div>
 

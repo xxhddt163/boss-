@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { api, setStoredToken, getStoredToken } from './services/api.ts';
 import { wsClient } from './services/ws.ts';
 import { User, ChannelComputedView, BossConfig } from './types.ts';
-import { getCurrentServerTime, setServerTimeSync } from './utils/time.ts';
+import { getCurrentServerTime, setServerTimeSync, formatBeijing } from './utils/time.ts';
 import { Header } from './components/Header.tsx';
 import { StatsBar } from './components/StatsBar.tsx';
 import { FilterBar, StatusFilter, SortOption } from './components/FilterBar.tsx';
@@ -19,7 +19,19 @@ import { OnlinePlayersModal } from './components/OnlinePlayersModal.tsx';
 import { LeaveReasonModal } from './components/LeaveReasonModal.tsx';
 import { LeaveReasonsAdminModal } from './components/LeaveReasonsAdminModal.tsx';
 import { sound, sendDesktopNotification } from './utils/sound.ts';
-import { AlertCircle, CheckCircle, Info, RotateCcw, Download, WifiOff, MessageSquareWarning } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle,
+  Info,
+  RotateCcw,
+  Download,
+  WifiOff,
+  MessageSquareWarning,
+  PictureInPicture2,
+  Maximize2,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 import {
   exportChannelsToCSV,
   saveOfflineChannelsCache,
@@ -68,6 +80,12 @@ export default function App() {
   const [resetConfirmChannelNo, setResetConfirmChannelNo] = useState<number | null>(null);
   const [leaveModalChannelNo, setLeaveModalChannelNo] = useState<number | null>(null);
   const [leaveReasonsAdminModalOpen, setLeaveReasonsAdminModalOpen] = useState<boolean>(false);
+
+  // PC Mini Window Mode (小窗模式) state
+  const [isMiniMode, setIsMiniMode] = useState<boolean>(false);
+  const [miniSoundEnabled, setMiniSoundEnabled] = useState<boolean>(sound.isEnabled());
+  const miniWindowRef = React.useRef<HTMLDivElement>(null);
+  const prevWindowSizeRef = React.useRef<{ width: number; height: number } | null>(null);
 
   // Notification banners (e.g. concurrent kill click alert)
   const [bannerNotice, setBannerNotice] = useState<{ type: 'info' | 'success' | 'warn'; message: string } | null>(null);
@@ -422,10 +440,98 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    setIsMiniMode(false);
     setStoredToken(null);
     setCurrentUser(null);
     showNotice('info', '已安全退出登录');
   };
+
+  // Current account's accepted channels (普通用户最多1个，管理员账号接了几个就显示几个)
+  const myAcceptedChannels = useMemo(() => {
+    if (!currentUser) return [];
+    const list = Array.isArray(channels) ? channels : [];
+    const mine = list.filter(
+      (c) =>
+        c &&
+        Array.isArray(c.active_visitors) &&
+        c.active_visitors.some((v) => v && v.user_id === currentUser.id)
+    );
+
+    mine.sort((a, b) => {
+      if (sortOption === 'entry_soon') {
+        const remA = a.remaining_seconds_entry ?? 9999999;
+        const remB = b.remaining_seconds_entry ?? 9999999;
+        if (remA !== remB) return remA - remB;
+      } else if (sortOption === 'guaranteed_soon') {
+        const remA = a.remaining_seconds_guaranteed ?? 9999999;
+        const remB = b.remaining_seconds_guaranteed ?? 9999999;
+        if (remA !== remB) return remA - remB;
+      } else if (sortOption === 'killed_desc') {
+        const timeA = a.last_kill ? new Date(a.last_kill.killed_at).getTime() : 0;
+        const timeB = b.last_kill ? new Date(b.last_kill.killed_at).getTime() : 0;
+        if (timeA !== timeB) return timeB - timeA;
+      }
+
+      const hasKillA = !!a.last_kill;
+      const hasKillB = !!b.last_kill;
+      if (hasKillA && !hasKillB) return -1;
+      if (!hasKillA && hasKillB) return 1;
+      if (hasKillA && hasKillB) {
+        const timeA = new Date(a.last_kill!.killed_at).getTime();
+        const timeB = new Date(b.last_kill!.killed_at).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+        return a.channel_no - b.channel_no;
+      }
+      return a.channel_no - b.channel_no;
+    });
+
+    return mine;
+  }, [channels, currentUser, sortOption]);
+
+  // Enter PC Mini Window Mode (requires at least 1 accepted channel)
+  const handleOpenMiniMode = () => {
+    sound.playClick();
+    if (!currentUser) return;
+    if (myAcceptedChannels.length === 0) {
+      showNotice('warn', '小窗模式需要在对应频道【接单】后才能打开，请先在频道列表点击接单！');
+      return;
+    }
+    prevWindowSizeRef.current = {
+      width: window.outerWidth,
+      height: window.outerHeight,
+    };
+    setMiniSoundEnabled(sound.isEnabled());
+    setIsMiniMode(true);
+  };
+
+  // Exit PC Mini Window Mode back to full webpage
+  const handleExitMiniMode = () => {
+    sound.playClick();
+    setIsMiniMode(false);
+    if (prevWindowSizeRef.current) {
+      try {
+        window.resizeTo(prevWindowSizeRef.current.width, prevWindowSizeRef.current.height);
+      } catch {
+        // Ignore in standard multi-tab / iframe environments
+      }
+      prevWindowSizeRef.current = null;
+    }
+  };
+
+  // Auto-adjust native window size if running in standalone app window when mini mode or accepted channel count changes
+  useEffect(() => {
+    if (!isMiniMode || !miniWindowRef.current) return;
+    const timer = setTimeout(() => {
+      if (!miniWindowRef.current) return;
+      const rect = miniWindowRef.current.getBoundingClientRect();
+      try {
+        window.resizeTo(Math.ceil(rect.width + 36), Math.ceil(rect.height + 76));
+      } catch {
+        // Ignore in standard multi-tab / iframe environments
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [isMiniMode, myAcceptedChannels.length]);
 
   // Filter & Sort computation
   const filteredChannels = useMemo(() => {
@@ -531,20 +637,30 @@ export default function App() {
   }, [channels, statusFilter, hasVisitorFilter, hasNoteFilter, searchQuery, sortOption]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
-      {/* Top Header */}
-      <Header
-        currentUser={currentUser}
-        onlineCount={onlineCount}
-        wsConnected={wsConnected}
-        pendingUsersCount={currentUser?.role === 'admin' ? pendingUsersCount : 0}
-        onOpenAdmin={() => setAdminModalOpen(true)}
-        onChangePassword={() => {
-          setAuthModalMode('change_password');
-          setAuthModalOpen(true);
-        }}
-        onLogout={handleLogout}
-      />
+    <div
+      className={`${
+        isMiniMode && currentUser
+          ? 'min-h-0 bg-slate-950/95 p-2 sm:p-3 flex items-start justify-start'
+          : 'min-h-screen bg-slate-950 flex flex-col'
+      } text-slate-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-200`}
+    >
+      {/* Top Header (Hidden when in PC Mini Window Mode) */}
+      {!(isMiniMode && currentUser) && (
+        <Header
+          currentUser={currentUser}
+          onlineCount={onlineCount}
+          wsConnected={wsConnected}
+          pendingUsersCount={currentUser?.role === 'admin' ? pendingUsersCount : 0}
+          myAcceptedCount={myAcceptedChannels.length}
+          onOpenMiniMode={handleOpenMiniMode}
+          onOpenAdmin={() => setAdminModalOpen(true)}
+          onChangePassword={() => {
+            setAuthModalMode('change_password');
+            setAuthModalOpen(true);
+          }}
+          onLogout={handleLogout}
+        />
+      )}
 
       {/* Floating Notice Banner */}
       {bannerNotice && (
@@ -588,6 +704,114 @@ export default function App() {
             }
           }}
         />
+      ) : isMiniMode ? (
+        /* PC Mini Window Mode (小窗模式): Auto-shrunk to fit ONLY the current user's accepted channels & buttons */
+        <div
+          ref={miniWindowRef}
+          className="w-fit h-fit max-w-[99vw] overflow-x-auto sm:overflow-visible rounded-2xl border-2 border-amber-400/80 bg-slate-950 shadow-[0_12px_40px_rgba(0,0,0,0.9),0_0_25px_rgba(245,158,11,0.22)] p-2.5 sm:p-3 transition-all duration-200"
+        >
+          {/* Compact Mini Window Control Bar */}
+          <div className="flex items-center justify-between gap-3 pb-2 mb-2 border-b border-slate-800/90 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-black bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 shadow-sm">
+                <PictureInPicture2 className="w-3.5 h-3.5" />
+                <span>小窗模式</span>
+              </span>
+
+              <span className="text-xs text-slate-300 font-medium">
+                当前角色：<strong className="text-purple-300 font-bold">{currentUser.game_id}</strong>
+              </span>
+
+              <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-950/80 border border-amber-700/70 text-amber-200">
+                已接单频道：{myAcceptedChannels.length} 个
+                {myAcceptedChannels.length > 0 && (
+                  <span className="ml-1 text-amber-300 font-mono">
+                    ({myAcceptedChannels.map((c) => `${c.channel_no}频`).join('、')})
+                  </span>
+                )}
+              </span>
+
+              <span className="text-[11px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded tabular-nums">
+                北京时间 <strong className="text-cyan-300">{formatBeijing(serverTime).split(' ')[1] || formatBeijing(serverTime)}</strong>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Quick Voice Broadcast Toggle in Mini Window */}
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !miniSoundEnabled;
+                  sound.setEnabled(next);
+                  setMiniSoundEnabled(next);
+                }}
+                title={miniSoundEnabled ? '语音播报已开启（点击静音）' : '已静音（点击开启语音播报）'}
+                className={`px-2 py-1 rounded-lg border text-xs transition-colors flex items-center gap-1 cursor-pointer ${
+                  miniSoundEnabled
+                    ? 'bg-slate-900 border-slate-700 text-cyan-400 hover:bg-slate-800'
+                    : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {miniSoundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                <span className="text-[11px] font-medium">{miniSoundEnabled ? '语音播报' : '已静音'}</span>
+              </button>
+
+              {/* Switch Button to Exit Mini Window Mode (返回之前那种大网页) */}
+              <button
+                type="button"
+                onClick={handleExitMiniMode}
+                title="点击关闭小窗模式，返回完整大网页"
+                className="px-3 py-1 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black text-xs flex items-center gap-2 shadow-md cursor-pointer active:scale-95 transition-all"
+              >
+                <span className="inline-flex items-center w-6 h-3.5 rounded-full bg-slate-950/35 p-0.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-white translate-x-2.5 transition-transform" />
+                </span>
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>退出小窗模式</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Accepted Channels Only Table */}
+          {myAcceptedChannels.length === 0 ? (
+            <div className="py-3 px-4 rounded-xl bg-slate-900/70 border border-slate-800 flex items-center justify-between gap-6 min-w-[520px]">
+              <div className="flex items-center gap-2 text-xs text-slate-300">
+                <Info className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>当前账号已无接单中的频道（已完成击杀交单或已退单）</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleExitMiniMode}
+                className="px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs flex items-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>返回大网页继续接单</span>
+              </button>
+            </div>
+          ) : (
+            <div className="w-fit">
+              <ChannelTableHeader miniMode />
+              <div className="space-y-1.5 mt-1.5 w-fit">
+                {myAcceptedChannels.map((channel) => (
+                  <ChannelRow
+                    key={channel.channel_no}
+                    channel={channel}
+                    currentUser={currentUser}
+                    serverTime={serverTime}
+                    onVisit={handleVisit}
+                    onLeave={handleLeave}
+                    onKill={handleRequestKill}
+                    onOpenHistory={(ch) => setHistoryChannelNo(ch)}
+                    onReset={handleRequestReset}
+                    onUpdateTag={handleUpdateTag}
+                    isActionLoading={actionLoading}
+                    miniMode
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
         <main className="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-4 lg:px-6 py-4">
           {/* Server Disconnected / Disaster Recovery Offline Banner */}
@@ -643,8 +867,33 @@ export default function App() {
                 </h1>
               </div>
 
-              {currentUser.role === 'admin' && (
-                <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+              <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+                <button
+                  type="button"
+                  onClick={handleOpenMiniMode}
+                  title={
+                    myAcceptedChannels.length > 0
+                      ? `当前已接单 ${myAcceptedChannels.length} 个频道，点击进入小窗模式`
+                      : '请先在对应频道点击【接单】后才能打开小窗模式'
+                  }
+                  className={`px-3.5 py-2 text-xs font-bold rounded-lg border transition-all flex items-center gap-1.5 active:scale-95 shadow-sm cursor-pointer ${
+                    myAcceptedChannels.length > 0
+                      ? 'bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 border-amber-300 text-slate-950 shadow-[0_0_16px_rgba(245,158,11,0.3)]'
+                      : 'bg-slate-800/80 hover:bg-slate-800 border-slate-700 text-slate-300'
+                  }`}
+                >
+                  <PictureInPicture2 className={`w-4 h-4 ${myAcceptedChannels.length > 0 ? 'text-slate-950' : 'text-amber-400'}`} />
+                  <span>小窗模式</span>
+                  {myAcceptedChannels.length > 0 ? (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-slate-950 text-amber-300">
+                      已接 {myAcceptedChannels.length} 单
+                    </span>
+                  ) : (
+                    <span className="text-[10px] opacity-75 font-normal">(需先接单)</span>
+                  )}
+                </button>
+
+                {currentUser.role === 'admin' && (
                   <button
                     onClick={() => {
                       sound.playClick();
@@ -655,8 +904,8 @@ export default function App() {
                     <MessageSquareWarning className="w-3.5 h-3.5 text-amber-400" />
                     <span>退单理由记录</span>
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
@@ -728,7 +977,24 @@ export default function App() {
               <span>
                 显示频道：<strong className="text-white font-mono">{filteredChannels.length}</strong> / 60
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleOpenMiniMode}
+                  title={
+                    myAcceptedChannels.length > 0
+                      ? `当前已接单 ${myAcceptedChannels.length} 个频道，点击进入小窗模式`
+                      : '请先在对应频道点击【接单】后才能打开小窗模式'
+                  }
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-xs ${
+                    myAcceptedChannels.length > 0
+                      ? 'bg-amber-950/85 hover:bg-amber-900/90 text-amber-200 border-amber-500/80'
+                      : 'bg-slate-800/90 hover:bg-slate-700 text-slate-300 border-slate-700'
+                  }`}
+                >
+                  <PictureInPicture2 className="w-3.5 h-3.5 text-amber-400" />
+                  <span>小窗模式{myAcceptedChannels.length > 0 ? ` (${myAcceptedChannels.length})` : ' (需先接单)'}</span>
+                </button>
                 {currentUser.role === 'admin' && (
                   <button
                     type="button"

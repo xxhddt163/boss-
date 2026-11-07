@@ -3,13 +3,15 @@ import emblemImg from '../assets/images/snowman_boss_emblem_1793630816599.jpg';
 import { User } from '../types.ts';
 import { sound, requestNotificationPermission } from '../utils/sound.ts';
 import { getCurrentServerTime, formatBeijing } from '../utils/time.ts';
-import { Volume2, VolumeX, Bell, Shield, LogOut, KeyRound } from 'lucide-react';
+import { Volume2, VolumeX, Bell, Shield, LogOut, KeyRound, PictureInPicture2 } from 'lucide-react';
 
 interface HeaderProps {
   currentUser: User | null;
   onlineCount: number;
   wsConnected: boolean;
   pendingUsersCount?: number;
+  myAcceptedCount?: number;
+  onOpenMiniMode?: () => void;
   onOpenAdmin: () => void;
   onChangePassword: () => void;
   onLogout: () => void;
@@ -22,6 +24,8 @@ export const Header: React.FC<HeaderProps> = ({
   onlineCount,
   wsConnected,
   pendingUsersCount,
+  myAcceptedCount = 0,
+  onOpenMiniMode,
   onOpenAdmin,
   onChangePassword,
   onLogout,
@@ -48,10 +52,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const handleNotificationRequest = async () => {
-    const granted = await requestNotificationPermission();
-    if (granted) {
-      alert('已开启桌面推送通知，进刷与保底时将弹窗提醒！');
-    }
+    await requestNotificationPermission();
   };
 
   return (
@@ -87,9 +88,38 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-cyan-300 font-semibold">{serverTimeStr || '--:--:--'}</span>
           </div>
 
-          {/* Sound & Voice Broadcast Toggle (only visible on homepage when logged in) */}
+          {/* Sound & Voice Broadcast Toggle + Mini Window Mode (only visible on homepage when logged in) */}
           {currentUser && (
             <>
+              {onOpenMiniMode && (
+                <button
+                  type="button"
+                  onClick={onOpenMiniMode}
+                  title={
+                    myAcceptedCount > 0
+                      ? `当前已接单 ${myAcceptedCount} 个频道，点击打开小窗模式`
+                      : '请先在对应频道点击【接单】后，再打开小窗模式'
+                  }
+                  className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                    myAcceptedCount > 0
+                      ? 'bg-amber-950/70 border-amber-500/80 text-amber-200 hover:bg-amber-900/80 shadow-[0_0_12px_rgba(245,158,11,0.25)]'
+                      : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                  }`}
+                >
+                  <PictureInPicture2 className={`w-4 h-4 ${myAcceptedCount > 0 ? 'text-amber-400' : 'text-slate-400'}`} />
+                  <span>小窗模式</span>
+                  {myAcceptedCount > 0 ? (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-400 text-slate-950">
+                      {myAcceptedCount}
+                    </span>
+                  ) : (
+                    <span className="hidden xl:inline text-[10px] text-slate-500 font-normal">
+                      (需先接单)
+                    </span>
+                  )}
+                </button>
+              )}
+
               <button
                 onClick={toggleSound}
                 title={soundEnabled ? '语音播报与音效已开启（点击静音）' : '语音与音效已静音（点击开启）'}
