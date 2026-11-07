@@ -562,19 +562,21 @@ adminRouter.post('/reset-database', (req: Request, res: Response) => {
   res.json({ success: true, message: '系统数据库已重置为全新空白状态！所有击杀与访问数据已清空。' });
 });
 
-// Helper for Beijing Time parts
+// Singleton formatter for Beijing Time parts (avoids expensive re-instantiation inside loops)
+const BEIJING_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+});
+
 function getBeijingDateParts(d: Date) {
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Shanghai',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  });
-  const parts = formatter.formatToParts(d);
+  const safeDate = d instanceof Date && !isNaN(d.getTime()) ? d : new Date();
+  const parts = BEIJING_DATE_FORMATTER.formatToParts(safeDate);
   const get = (type: string) => parts.find((p) => p.type === type)?.value || '00';
   const year = parseInt(get('year'), 10);
   const month = parseInt(get('month'), 10);
@@ -608,7 +610,7 @@ function getBeijingWeekInfo(d: Date) {
   const mon = new Date(target);
   mon.setDate(target.getDate() - dayNr);
   const sun = new Date(mon);
-  sun.setDate(sun.getDate() + 6);
+  sun.setDate(mon.getDate() + 6);
   const monParts = getBeijingDateParts(mon);
   const sunParts = getBeijingDateParts(sun);
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -640,9 +642,10 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
   const admin = requireAdmin(req, res);
   if (!admin) return;
 
-  const db = loadDB();
-  const validKills = db.kill_records.filter((r) => !r.is_void);
-  const totalKills = validKills.length;
+  try {
+    const db = loadDB();
+    const validKills = (db.kill_records || []).filter((r) => r && !r.is_void && r.killed_at && !isNaN(new Date(r.killed_at).getTime()));
+    const totalKills = validKills.length;
 
   const now = new Date();
   const todayParts = getBeijingDateParts(now);
@@ -957,7 +960,10 @@ adminRouter.get('/kill-stats', (req: Request, res: Response) => {
     memberStats,
   };
 
-  res.json(payload);
+    res.json(payload);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || '获取击杀统计失败' });
+  }
 });
 
 

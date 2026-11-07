@@ -25,26 +25,48 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  const isGet = !options.method || options.method.toUpperCase() === 'GET';
+  const maxAttempts = isGet ? 3 : 1;
+  let lastErr: any = null;
 
-  const contentType = response.headers.get('content-type');
-  if (contentType && contentType.includes('application/json')) {
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || `请求失败 (${response.status})`);
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
+
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        if (!response.ok) {
+          const err: any = new Error(data.error || `请求失败 (${response.status})`);
+          err.status = response.status;
+          throw err;
+        }
+        return data as T;
+      }
+
+      if (!response.ok) {
+        const text = await response.text();
+        const err: any = new Error(text || `请求失败 (${response.status})`);
+        err.status = response.status;
+        throw err;
+      }
+
+      return (await response.text()) as unknown as T;
+    } catch (err: any) {
+      lastErr = err;
+      // Only retry on network-level errors (no HTTP status code) when more attempts remain
+      if (attempt < maxAttempts && !err?.status) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 400));
+        continue;
+      }
+      throw err;
     }
-    return data as T;
   }
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `请求失败 (${response.status})`);
-  }
-
-  return (await response.text()) as unknown as T;
+  throw lastErr;
 }
 
 export const api = {

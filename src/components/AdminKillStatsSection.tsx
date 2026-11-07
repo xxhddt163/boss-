@@ -27,16 +27,20 @@ interface AdminKillStatsSectionProps {
 
 type TimeScaleMode = 'daily' | 'weekly' | 'monthly';
 
+const KILL_STATS_CACHE_KEY = 'snowman_offline_kill_stats_v1';
+
 export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
   currentUser,
   lastUpdateTimestamp,
 }) => {
-  // Strict admin guard: do not render anything if not admin
-  if (!currentUser || currentUser.role !== 'admin') {
-    return null;
-  }
-
-  const [stats, setStats] = useState<KillStatsData | null>(null);
+  const [stats, setStats] = useState<KillStatsData | null>(() => {
+    try {
+      const raw = localStorage.getItem(KILL_STATS_CACHE_KEY);
+      return raw ? (JSON.parse(raw) as KillStatsData) : null;
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [timeScale, setTimeScale] = useState<TimeScaleMode>('daily');
@@ -48,28 +52,29 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
   const [memberSearch, setMemberSearch] = useState<string>('');
 
   const fetchStats = async (isManual = false) => {
+    if (!currentUser || currentUser.role !== 'admin') return;
     try {
       if (isManual) setRefreshing(true);
       const data = await api.getKillStats();
       setStats(data);
-    } catch (err) {
-      console.error('Failed to load admin kill stats:', err);
+      try {
+        localStorage.setItem(KILL_STATS_CACHE_KEY, JSON.stringify(data));
+      } catch {
+        // ignore storage quota errors
+      }
+    } catch {
+      // Keep existing or cached stats on transient network error
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
+  // Single unified effect for initial load & WebSocket/kill updates
   useEffect(() => {
+    if (!currentUser || currentUser.role !== 'admin') return;
     fetchStats();
-  }, [currentUser]);
-
-  // Refresh when external kills or websocket state changes
-  useEffect(() => {
-    if (lastUpdateTimestamp) {
-      fetchStats();
-    }
-  }, [lastUpdateTimestamp]);
+  }, [currentUser?.id, currentUser?.role, lastUpdateTimestamp]);
 
   // Bar chart active data source (with per-period roleShare and channelShare)
   const barData = useMemo(() => {
@@ -199,6 +204,10 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
         m.username.toLowerCase().includes(q)
     );
   }, [stats, memberSearch]);
+
+  if (!currentUser || currentUser.role !== 'admin') {
+    return null;
+  }
 
   return (
     <section className="mb-4 rounded-2xl border border-cyan-800/40 bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-slate-950/95 shadow-xl backdrop-blur-md overflow-hidden transition-all">

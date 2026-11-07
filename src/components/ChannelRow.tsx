@@ -235,50 +235,98 @@ export const ChannelRow: React.FC<ChannelRowProps> = ({
             <span className="text-slate-600 text-xs">—</span>
           )}
 
-          {/* Tag Selection Popover with elevated z-index */}
+          {/* Tag Selection Popover: compact horizontal bar in miniMode, dropdown in normal mode */}
           {tagDropdownOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-40 bg-black/20"
-                onClick={() => setTagDropdownOpen(false)}
-              />
-              <div className="absolute left-0 top-full mt-2 z-50 w-40 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-100">
-                <div className="px-2 py-1 text-[10px] text-slate-400 font-semibold border-b border-slate-800">
-                  修改 {channel.channel_no} 频道标签
+            miniMode ? (
+              <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-xs flex items-center justify-center px-4 animate-in fade-in duration-100">
+                <div className="flex items-center gap-2 bg-slate-900 border border-amber-500/60 rounded-xl px-3 py-2 shadow-2xl">
+                  <span className="text-xs text-slate-300 font-bold mr-1">
+                    修改 {channel.channel_no} 频道标签：
+                  </span>
+                  {AVAILABLE_TAGS.map((t) => (
+                    <button
+                      key={t.label}
+                      type="button"
+                      onClick={() => {
+                        onUpdateTag(channel.channel_no, t.label);
+                        setTagDropdownOpen(false);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors border cursor-pointer ${
+                        channel.channel_tag === t.label
+                          ? t.color
+                          : 'border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white'
+                      }`}
+                    >
+                      <span>{t.label}</span>
+                      {channel.channel_tag === t.label && <span className="text-[10px]">✓</span>}
+                    </button>
+                  ))}
+                  {channel.channel_tag && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUpdateTag(channel.channel_no, '');
+                        setTagDropdownOpen(false);
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-300 bg-rose-950/60 hover:bg-rose-900/70 border border-rose-700/70 flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                      <span>清除标签</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setTagDropdownOpen(false)}
+                    className="ml-1 px-2 py-1 rounded-lg text-xs text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700 cursor-pointer"
+                  >
+                    取消
+                  </button>
                 </div>
-                {AVAILABLE_TAGS.map((t) => (
-                  <button
-                    key={t.label}
-                    type="button"
-                    onClick={() => {
-                      onUpdateTag(channel.channel_no, t.label);
-                      setTagDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-medium flex items-center justify-between transition-colors border cursor-pointer ${
-                      channel.channel_tag === t.label
-                        ? t.color
-                        : 'border-transparent text-slate-300 hover:bg-slate-800 hover:text-white'
-                    }`}
-                  >
-                    <span>{t.label}</span>
-                    {channel.channel_tag === t.label && <span className="text-[10px]">✓</span>}
-                  </button>
-                ))}
-                {channel.channel_tag && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onUpdateTag(channel.channel_no, '');
-                      setTagDropdownOpen(false);
-                    }}
-                    className="w-full text-left px-2 py-1.5 rounded-lg text-xs text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 flex items-center gap-1.5 transition-colors border border-transparent cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                    <span>清除标签</span>
-                  </button>
-                )}
               </div>
-            </>
+            ) : (
+              <>
+                <div
+                  className="fixed inset-0 z-40 bg-black/20"
+                  onClick={() => setTagDropdownOpen(false)}
+                />
+                <div className="absolute left-0 top-full mt-2 z-50 w-40 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-2 py-1 text-[10px] text-slate-400 font-semibold border-b border-slate-800">
+                    修改 {channel.channel_no} 频道标签
+                  </div>
+                  {AVAILABLE_TAGS.map((t) => (
+                    <button
+                      key={t.label}
+                      type="button"
+                      onClick={() => {
+                        onUpdateTag(channel.channel_no, t.label);
+                        setTagDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-2 py-1.5 rounded-lg text-xs font-medium flex items-center justify-between transition-colors border cursor-pointer ${
+                        channel.channel_tag === t.label
+                          ? t.color
+                          : 'border-transparent text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <span>{t.label}</span>
+                      {channel.channel_tag === t.label && <span className="text-[10px]">✓</span>}
+                    </button>
+                  ))}
+                  {channel.channel_tag && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUpdateTag(channel.channel_no, '');
+                        setTagDropdownOpen(false);
+                      }}
+                      className="w-full text-left px-2 py-1.5 rounded-lg text-xs text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 flex items-center gap-1.5 transition-colors border border-transparent cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                      <span>清除标签</span>
+                    </button>
+                  )}
+                </div>
+              </>
+            )
           )}
         </div>
 
