@@ -52,7 +52,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
   const [memberSearch, setMemberSearch] = useState<string>('');
 
   const fetchStats = async (isManual = false) => {
-    if (!currentUser || currentUser.role !== 'admin') return;
+    if (!currentUser) return;
     try {
       if (isManual) setRefreshing(true);
       const data = await api.getKillStats();
@@ -72,9 +72,9 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
 
   // Single unified effect for initial load & WebSocket/kill updates
   useEffect(() => {
-    if (!currentUser || currentUser.role !== 'admin') return;
+    if (!currentUser) return;
     fetchStats();
-  }, [currentUser?.id, currentUser?.role, lastUpdateTimestamp]);
+  }, [currentUser?.id, lastUpdateTimestamp]);
 
   // Bar chart active data source (with per-period roleShare and channelShare)
   const barData = useMemo(() => {
@@ -205,7 +205,7 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
     );
   }, [stats, memberSearch]);
 
-  if (!currentUser || currentUser.role !== 'admin') {
+  if (!currentUser) {
     return null;
   }
 
@@ -221,8 +221,8 @@ export const AdminKillStatsSection: React.FC<AdminKillStatsSectionProps> = ({
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-white tracking-wide flex items-center gap-1.5">
                 击杀数据统计监控
-                <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-500/20 border border-amber-500/40 text-amber-300">
-                  管理员专享
+                <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-cyan-500/20 border border-cyan-500/40 text-cyan-300">
+                  全服实时统计
                 </span>
               </span>
             </div>

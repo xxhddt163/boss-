@@ -1268,13 +1268,11 @@ export default function App() {
             </div>
           )}
 
-          {/* Admin Kill Statistics: 每日，每周，每月，每个人的击杀总数，条形图与饼状图 (仅管理员可见) */}
-          {currentUser.role === 'admin' && (
-            <AdminKillStatsSection
-              currentUser={currentUser}
-              lastUpdateTimestamp={statsLastUpdate}
-            />
-          )}
+          {/* Kill Statistics: 每日，每周，每月，每个人的击杀总数，条形图与饼状图 (所有登录用户可见) */}
+          <AdminKillStatsSection
+            currentUser={currentUser}
+            lastUpdateTimestamp={statsLastUpdate}
+          />
 
           {/* 1. Statistics Bar */}
           <StatsBar

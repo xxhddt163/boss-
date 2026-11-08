@@ -44,6 +44,31 @@ function requireAdmin(req: Request, res: Response): User | null {
   }
 }
 
+// Middleware: any active logged-in user check (for shared kill stats dashboard)
+function requireLoggedInUser(req: Request, res: Response): User | null {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    res.status(401).json({ error: '未登录' });
+    return null;
+  }
+  try {
+    const token = authHeader.replace(/^Bearer\s+/, '');
+    const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf-8'));
+    const db = loadDB();
+    const user = db.users.find((u) => u.id === decoded.userId);
+
+    if (!user || user.status !== 'active') {
+      res.status(401).json({ error: '用户未登录或未启用' });
+      return null;
+    }
+
+    return user;
+  } catch {
+    res.status(401).json({ error: '凭证无效' });
+    return null;
+  }
+}
+
 // 1. Get all users
 adminRouter.get('/users', (req: Request, res: Response) => {
   const admin = requireAdmin(req, res);
@@ -637,10 +662,10 @@ const STAT_PALETTE = [
   '#84cc16', // lime-500
 ];
 
-// 13. Admin Kill Statistics: 每日，每周，每月，每个人的击杀总数，条形图与饼状图数据
+// 13. Kill Statistics: 每日，每周，每月，每个人的击杀总数，条形图与饼状图数据 (开放给所有已登录用户查看)
 adminRouter.get('/kill-stats', (req: Request, res: Response) => {
-  const admin = requireAdmin(req, res);
-  if (!admin) return;
+  const user = requireLoggedInUser(req, res);
+  if (!user) return;
 
   try {
     const db = loadDB();
