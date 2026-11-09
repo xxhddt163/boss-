@@ -8,6 +8,13 @@ import {
   autoResetOverdueChannels,
   getLatestValidKill,
 } from './db.ts';
+import {
+  extractClientIp,
+  normalizeIp,
+  isPrivateOrLoopbackIp,
+  resolveIpLocation,
+  getCachedIpLocation,
+} from './ipGeo.ts';
 
 interface ConnectedClient {
   ws: WebSocket;
@@ -15,12 +22,41 @@ interface ConnectedClient {
   username?: string;
   gameId?: string;
   ip?: string;
+  ipLocation?: string;
   connectedAt: Date;
 }
 
 let wss: WebSocketServer | null = null;
 const clients = new Set<ConnectedClient>();
 const triggeredAlerts = new Set<string>(); // key: `${channelNo}_${killId}_${stage}`
+
+function syncClientIpAndGeo(client: ConnectedClient, reportedIp?: string, reportedLocation?: string): void {
+  const cleanReported = normalizeIp(reportedIp);
+  if (cleanReported && !isPrivateOrLoopbackIp(cleanReported)) {
+    if (!client.ip || isPrivateOrLoopbackIp(client.ip)) {
+      client.ip = cleanReported;
+    }
+  }
+
+  const targetIp = client.ip || cleanReported || '127.0.0.1';
+  client.ip = targetIp;
+
+  resolveIpLocation(targetIp, reportedLocation)
+    .then((loc) => {
+      client.ipLocation = loc;
+      if (client.userId) {
+        const db = loadDB();
+        const dbUser = db.users.find((u) => u.id === client.userId);
+        if (dbUser) {
+          if (!isPrivateOrLoopbackIp(targetIp) || !dbUser.last_login_ip) {
+            dbUser.last_login_ip = targetIp;
+            dbUser.last_login_location = loc;
+          }
+        }
+      }
+    })
+    .catch(() => {});
+}
 
 export function initWebSocketServer(server: Server): WebSocketServer {
   wss = new WebSocketServer({ noServer: true });
@@ -39,12 +75,15 @@ export function initWebSocketServer(server: Server): WebSocketServer {
   });
 
   wss.on('connection', (ws: WebSocket, req) => {
+    const initialIp = extractClientIp(req);
     const client: ConnectedClient = {
       ws,
-      ip: req.socket.remoteAddress,
+      ip: initialIp,
+      ipLocation: getCachedIpLocation(initialIp),
       connectedAt: new Date(),
     };
     clients.add(client);
+    syncClientIpAndGeo(client);
 
     // Send initial snapshot
     const now = new Date();
@@ -69,7 +108,10 @@ export function initWebSocketServer(server: Server): WebSocketServer {
           client.userId = data.userId;
           client.username = data.username;
           client.gameId = data.gameId;
+          syncClientIpAndGeo(client, data.clientIp, data.clientLocation);
           broadcastOnlineCount();
+        } else if (data.type === 'CLIENT_IP_INFO') {
+          syncClientIpAndGeo(client, data.clientIp, data.clientLocation);
         } else if (data.type === 'HEARTBEAT') {
           safeSend(ws, { type: 'PONG', serverTime: new Date().toISOString() });
         }
@@ -261,6 +303,8 @@ export interface OnlinePlayerInfo {
   connectedAt: string;
   isGuest: boolean;
   connectionsCount?: number;
+  ip?: string;
+  ipLocation?: string;
 }
 
 export function getOnlinePlayersList(): OnlinePlayerInfo[] {
@@ -270,13 +314,30 @@ export function getOnlinePlayersList(): OnlinePlayerInfo[] {
 
   clients.forEach((c) => {
     if (c.userId) {
+      const dbUser = db.users.find((u) => u.id === c.userId);
+      const clientIp = normalizeIp(c.ip);
+      const userSavedIp = normalizeIp(dbUser?.last_login_ip);
+      const bestIp =
+        clientIp && !isPrivateOrLoopbackIp(clientIp)
+          ? clientIp
+          : userSavedIp && !isPrivateOrLoopbackIp(userSavedIp)
+          ? userSavedIp
+          : clientIp || userSavedIp || '127.0.0.1';
+      const bestLocation = getCachedIpLocation(
+        bestIp,
+        c.ipLocation || dbUser?.last_login_location
+      );
+
       const existing = seenUsers.get(c.userId);
       if (existing) {
         existing.connectionsCount = (existing.connectionsCount || 1) + 1;
+        if ((!existing.ip || isPrivateOrLoopbackIp(existing.ip)) && !isPrivateOrLoopbackIp(bestIp)) {
+          existing.ip = bestIp;
+          existing.ipLocation = bestLocation;
+        }
         return;
       }
 
-      const dbUser = db.users.find((u) => u.id === c.userId);
       const activeVisits = db.channel_visits.filter(
         (v) => v.user_id === c.userId && v.status === 'active'
       );
@@ -294,11 +355,14 @@ export function getOnlinePlayersList(): OnlinePlayerInfo[] {
         connectedAt: c.connectedAt.toISOString(),
         isGuest: false,
         connectionsCount: 1,
+        ip: bestIp,
+        ipLocation: bestLocation,
       };
 
       seenUsers.set(c.userId, playerInfo);
       list.push(playerInfo);
     } else {
+      const guestIp = normalizeIp(c.ip) || '127.0.0.1';
       list.push({
         username: '未登录访客',
         gameId: '访客',
@@ -308,6 +372,8 @@ export function getOnlinePlayersList(): OnlinePlayerInfo[] {
         connectedAt: c.connectedAt.toISOString(),
         isGuest: true,
         connectionsCount: 1,
+        ip: guestIp,
+        ipLocation: getCachedIpLocation(guestIp, c.ipLocation),
       });
     }
   });
@@ -322,3 +388,16 @@ export function getOnlinePlayersList(): OnlinePlayerInfo[] {
 
   return list;
 }
+
+export async function getOnlinePlayersListAsync(): Promise<OnlinePlayerInfo[]> {
+  const list = getOnlinePlayersList();
+  await Promise.all(
+    list.map(async (item) => {
+      if (item.ip) {
+        item.ipLocation = await resolveIpLocation(item.ip, item.ipLocation);
+      }
+    })
+  );
+  return list;
+}
+

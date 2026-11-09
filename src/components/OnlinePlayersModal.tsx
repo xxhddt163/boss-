@@ -16,6 +16,8 @@ import {
   CheckCircle2,
   Globe,
   Loader2,
+  MapPin,
+  Network,
 } from 'lucide-react';
 
 interface OnlinePlayersModalProps {
@@ -64,7 +66,10 @@ export const OnlinePlayersModal: React.FC<OnlinePlayersModalProps> = ({ onClose 
       p.gameId.toLowerCase().includes(q) ||
       p.username.toLowerCase().includes(q) ||
       (p.phone && p.phone.includes(q)) ||
-      (p.currentChannelNo && `${p.currentChannelNo}`.includes(q))
+      (p.ip && p.ip.toLowerCase().includes(q)) ||
+      (p.ipLocation && p.ipLocation.toLowerCase().includes(q)) ||
+      (p.currentChannelNo && `${p.currentChannelNo}`.includes(q)) ||
+      (p.activeChannelNos && p.activeChannelNos.some((ch) => `${ch}`.includes(q)))
     );
   });
 
@@ -92,7 +97,7 @@ export const OnlinePlayersModal: React.FC<OnlinePlayersModalProps> = ({ onClose 
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                实时追踪在线连接状态与频道蹲守动态 · 每10秒自动刷新
+                实时追踪在线连接状态、登录IP及归属地与频道蹲守动态 · 每10秒自动刷新
               </p>
             </div>
           </div>
@@ -130,13 +135,13 @@ export const OnlinePlayersModal: React.FC<OnlinePlayersModalProps> = ({ onClose 
             </div>
           </div>
 
-          <div className="relative w-full sm:w-64">
+          <div className="relative w-full sm:w-72">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="搜索角色名 / 用户名 / 频道..."
+              placeholder="搜索角色名 / 用户名 / IP / 归属地 / 频道..."
               className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
             />
           </div>
@@ -184,7 +189,7 @@ export const OnlinePlayersModal: React.FC<OnlinePlayersModalProps> = ({ onClose 
                   }`}
                 >
                   {/* Left: Avatar & Info */}
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-start sm:items-center gap-3">
                     <div
                       className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 border ${
                         isAdmin
@@ -203,7 +208,7 @@ export const OnlinePlayersModal: React.FC<OnlinePlayersModalProps> = ({ onClose 
                       )}
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-white text-sm">
                           {player.gameId}
@@ -234,7 +239,7 @@ export const OnlinePlayersModal: React.FC<OnlinePlayersModalProps> = ({ onClose 
                         )}
                       </div>
 
-                      <div className="flex items-center gap-4 text-xs text-slate-400 flex-wrap">
+                      <div className="flex items-center gap-x-4 gap-y-1 text-xs text-slate-400 flex-wrap">
                         {player.phone && (
                           <span className="flex items-center gap-1 font-mono">
                             <Phone className="w-3 h-3 text-slate-500" />
@@ -244,6 +249,20 @@ export const OnlinePlayersModal: React.FC<OnlinePlayersModalProps> = ({ onClose 
                         <span className="flex items-center gap-1 font-mono text-slate-500">
                           <Clock className="w-3 h-3 text-slate-600" />
                           连接时间: {formatBeijing(player.connectedAt)}
+                        </span>
+                      </div>
+
+                      {/* IP & IP Geolocation Row */}
+                      <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-900/90 border border-slate-700/80 text-[11px] font-mono text-cyan-300">
+                          <Network className="w-3 h-3 text-cyan-400 shrink-0" />
+                          <span className="text-slate-400 font-sans">IP:</span>
+                          <span>{player.ip || '未知'}</span>
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-950/40 border border-indigo-800/60 text-[11px] text-indigo-200">
+                          <MapPin className="w-3 h-3 text-indigo-400 shrink-0" />
+                          <span className="text-indigo-400/90">归属地:</span>
+                          <span className="font-medium">{player.ipLocation || '未知归属地'}</span>
                         </span>
                       </div>
                     </div>
