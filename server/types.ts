@@ -14,6 +14,8 @@ export interface User {
   created_at: string; // ISO UTC
   updated_at: string;
   last_login_at?: string;
+  last_login_ip?: string;
+  last_login_location?: string;
 }
 
 export interface BossConfig {

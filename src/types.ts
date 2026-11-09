@@ -178,6 +178,8 @@ export interface OnlinePlayerInfo {
   connectedAt: string;
   isGuest: boolean;
   connectionsCount?: number;
+  ip?: string;
+  ipLocation?: string;
 }
 
 export interface LeaveReasonRecord {
