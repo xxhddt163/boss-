@@ -11,11 +11,8 @@ class WebSocketClient {
   private connected: boolean = false;
   private statusListeners: Set<(connected: boolean) => void> = new Set();
   private identifiedUser: { userId: string; username: string; gameId: string } | null = null;
-  private clientIpInfo: { ip: string; location?: string } | null = null;
-  private ipDetectStarted: boolean = false;
 
   public connect(): void {
-    this.ensureClientIpDetected();
     if (this.ws || this.isConnecting) return;
     this.isConnecting = true;
 
@@ -30,7 +27,6 @@ class WebSocketClient {
         this.isConnecting = false;
         this.notifyStatus(true);
         this.sendIdentify();
-        this.sendClientIpInfo();
       };
 
       this.ws.onmessage = (event) => {
@@ -71,77 +67,6 @@ class WebSocketClient {
       this.cleanup();
       this.scheduleReconnect();
     }
-  }
-
-  private ensureClientIpDetected(): void {
-    if (this.ipDetectStarted) return;
-    this.ipDetectStarted = true;
-
-    try {
-      const cached = sessionStorage.getItem('snowman_client_ip_info');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed && parsed.ip) {
-          this.clientIpInfo = parsed;
-          return;
-        }
-      }
-    } catch {
-      // ignore storage errors
-    }
-
-    (async () => {
-      // Try ipwho.is (CORS-enabled HTTPS with Chinese location)
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 3500);
-        const res = await fetch('https://ipwho.is/?lang=zh-CN', { signal: controller.signal });
-        clearTimeout(timer);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.ip) {
-            const locParts = [
-              data.country === '中国' ? '' : data.country,
-              data.region,
-              data.city && data.city !== data.region ? data.city : '',
-            ].filter(Boolean);
-            const location = locParts.join(' ');
-            this.clientIpInfo = { ip: data.ip, location: location || undefined };
-            try {
-              sessionStorage.setItem('snowman_client_ip_info', JSON.stringify(this.clientIpInfo));
-            } catch {
-              // ignore
-            }
-            this.sendClientIpInfo();
-            return;
-          }
-        }
-      } catch {
-        // Fallback to next public IP endpoint
-      }
-
-      // Fallback: ipify
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 3500);
-        const res = await fetch('https://api.ipify.org?format=json', { signal: controller.signal });
-        clearTimeout(timer);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.ip) {
-            this.clientIpInfo = { ip: data.ip };
-            try {
-              sessionStorage.setItem('snowman_client_ip_info', JSON.stringify(this.clientIpInfo));
-            } catch {
-              // ignore
-            }
-            this.sendClientIpInfo();
-          }
-        }
-      } catch {
-        // ignore
-      }
-    })();
   }
 
   private cleanup(): void {
@@ -202,22 +127,6 @@ class WebSocketClient {
           userId: this.identifiedUser.userId,
           username: this.identifiedUser.username,
           gameId: this.identifiedUser.gameId,
-          clientIp: this.clientIpInfo?.ip,
-          clientLocation: this.clientIpInfo?.location,
-        }));
-      } catch {
-        // ignore
-      }
-    }
-  }
-
-  private sendClientIpInfo(): void {
-    if (this.ws && this.connected && this.clientIpInfo?.ip) {
-      try {
-        this.ws.send(JSON.stringify({
-          type: 'CLIENT_IP_INFO',
-          clientIp: this.clientIpInfo.ip,
-          clientLocation: this.clientIpInfo.location,
         }));
       } catch {
         // ignore

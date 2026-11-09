@@ -9,7 +9,7 @@ import {
   restoreBackup,
   resetToCleanState,
 } from '../db.ts';
-import { broadcastChannelsUpdate, getOnlinePlayersList, getOnlinePlayersListAsync } from '../ws.ts';
+import { broadcastChannelsUpdate, getOnlinePlayersList } from '../ws.ts';
 import { User, KillRecord } from '../types.ts';
 
 export const adminRouter = Router();
@@ -153,11 +153,11 @@ adminRouter.post('/users/batch-approve', (req: Request, res: Response) => {
 });
 
 // 1.3 Get currently online players (Admin only)
-adminRouter.get('/online-players', async (req: Request, res: Response) => {
+adminRouter.get('/online-players', (req: Request, res: Response) => {
   const admin = requireAdmin(req, res);
   if (!admin) return;
 
-  const onlineList = await getOnlinePlayersListAsync();
+  const onlineList = getOnlinePlayersList();
   res.json({
     totalCount: onlineList.length,
     users: onlineList,

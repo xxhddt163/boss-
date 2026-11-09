@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { loadDB, scheduleSave, logOperation } from '../db.ts';
 import { User } from '../types.ts';
-import { extractClientIp, isPrivateOrLoopbackIp, resolveIpLocation } from '../ipGeo.ts';
 
 export const authRouter = Router();
 
@@ -110,17 +109,7 @@ authRouter.post('/login', (req: Request, res: Response) => {
     });
   }
 
-  const loginIp = extractClientIp(req);
   user.last_login_at = new Date().toISOString();
-  if (!isPrivateOrLoopbackIp(loginIp) || !user.last_login_ip) {
-    user.last_login_ip = loginIp;
-    resolveIpLocation(loginIp)
-      .then((loc) => {
-        user.last_login_location = loc;
-        scheduleSave();
-      })
-      .catch(() => {});
-  }
   scheduleSave();
 
   logOperation({
