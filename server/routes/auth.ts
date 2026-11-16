@@ -183,6 +183,11 @@ authRouter.get('/me', (req: Request, res: Response) => {
       return res.status(401).json({ error: '用户不存在或状态异常' });
     }
 
+    if (!user.last_login_at) {
+      user.last_login_at = new Date().toISOString();
+      scheduleSave();
+    }
+
     let pendingUsersCount = 0;
     let pendingUsers: any[] = [];
     if (user.role === 'admin') {

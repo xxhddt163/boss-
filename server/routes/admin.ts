@@ -75,6 +75,18 @@ adminRouter.get('/users', (req: Request, res: Response) => {
   if (!admin) return;
 
   const db = loadDB();
+  // Map latest login or activity timestamp from operation_logs as fallback if last_login_at was not yet recorded
+  const latestLoginByUserId = new Map<string, string>();
+  for (const log of db.operation_logs) {
+    if (!log.user_id || !log.created_at) continue;
+    if (log.action === 'USER_LOGIN') {
+      const prev = latestLoginByUserId.get(log.user_id);
+      if (!prev || log.created_at > prev) {
+        latestLoginByUserId.set(log.user_id, log.created_at);
+      }
+    }
+  }
+
   const safeUsers = db.users.map((u) => ({
     id: u.id,
     username: u.username,
@@ -84,7 +96,7 @@ adminRouter.get('/users', (req: Request, res: Response) => {
     role: u.role,
     status: u.status,
     created_at: u.created_at,
-    last_login_at: u.last_login_at,
+    last_login_at: u.last_login_at || latestLoginByUserId.get(u.id),
   }));
 
   res.json({ users: safeUsers });

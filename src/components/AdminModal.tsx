@@ -332,6 +332,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ onClose, onDataChanged }
                       <th className="py-2.5 px-3 font-semibold">角色</th>
                       <th className="py-2.5 px-3 font-semibold">状态</th>
                       <th className="py-2.5 px-3 font-semibold">注册时间</th>
+                      <th className="py-2.5 px-3 font-semibold">最近登录时间</th>
                       <th className="py-2.5 px-3 font-semibold text-right">管理操作</th>
                     </tr>
                   </thead>
@@ -395,8 +396,15 @@ export const AdminModal: React.FC<AdminModalProps> = ({ onClose, onDataChanged }
                                 : '已禁用'}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 text-slate-400 tabular-nums">
+                          <td className="py-2.5 px-3 text-slate-400 font-mono tabular-nums whitespace-nowrap">
                             {formatBeijing(u.created_at)}
+                          </td>
+                          <td className="py-2.5 px-3 text-cyan-300/90 font-mono tabular-nums whitespace-nowrap">
+                            {u.last_login_at ? (
+                              formatBeijing(u.last_login_at)
+                            ) : (
+                              <span className="text-slate-500 font-sans">尚未登录</span>
+                            )}
                           </td>
                           <td className="py-2.5 px-3 text-right">
                             {isEditing ? (

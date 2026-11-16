@@ -1056,8 +1056,8 @@ export default function App() {
           externalRoot
         )}
 
-      {/* Top Header (Hidden only when in in-page fallback Mini Mode) */}
-      {!(isMiniMode && !externalRoot && currentUser) && (
+      {/* Top Header (Shown when logged in and not in in-page fallback Mini Mode) */}
+      {currentUser && !(isMiniMode && !externalRoot) && (
         <Header
           currentUser={currentUser}
           onlineCount={onlineCount}
