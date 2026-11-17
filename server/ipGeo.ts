@@ -150,27 +150,102 @@ async function fetchWithTimeout(url: string, timeoutMs = 2500): Promise<Response
 }
 
 /**
- * Get cached IP location synchronously if already resolved
+ * Get cached IP location synchronously (0ms latency).
+ * If not cached yet, triggers background resolution without blocking.
  */
 export function getCachedIpLocation(ip?: string, fallbackLocation?: string): string {
   const cleanIp = normalizeIp(ip);
   if (!cleanIp) return fallbackLocation || '未知归属地';
+
+  if (isPrivateOrLoopbackIp(cleanIp)) {
+    if (fallbackLocation && fallbackLocation !== '解析中...') return fallbackLocation;
+    return cleanIp === '127.0.0.1' ? '本机环回地址' : '局域网 / 内网';
+  }
 
   const cached = ipGeoCache.get(cleanIp);
   if (cached && Date.now() - cached.updatedAt < CACHE_TTL_MS) {
     return cached.location;
   }
 
-  if (isPrivateOrLoopbackIp(cleanIp)) {
-    if (fallbackLocation) return fallbackLocation;
-    return cleanIp === '127.0.0.1' ? '本机环回地址' : '局域网 / 内网';
+  // Trigger non-blocking background lookup so future reads hit memory cache immediately
+  resolveIpLocation(cleanIp, fallbackLocation).catch(() => {});
+
+  if (fallbackLocation && fallbackLocation !== '解析中...') {
+    return fallbackLocation;
   }
 
-  return fallbackLocation || '解析中...';
+  return '解析中...';
+}
+
+async function queryPconline(cleanIp: string): Promise<string> {
+  const res = await fetchWithTimeout(
+    `https://whois.pconline.com.cn/ipJson.jsp?ip=${encodeURIComponent(cleanIp)}&json=true`,
+    1500
+  );
+  if (!res.ok) throw new Error('pconline status error');
+  const buf = await res.arrayBuffer();
+  const text = new TextDecoder('gbk').decode(buf);
+  const data = JSON.parse(text);
+  if (data && data.pro && !data.err) {
+    const addr = String(data.addr || '').trim().replace(/\s+/g, ' · ');
+    const loc = addr || deduplicateRegionCity(data.pro, data.city);
+    if (loc) return loc;
+  }
+  throw new Error('pconline no domestic match');
+}
+
+async function queryIpApi(cleanIp: string): Promise<string> {
+  const res = await fetchWithTimeout(
+    `http://ip-api.com/json/${encodeURIComponent(cleanIp)}?lang=zh-CN&fields=status,country,regionName,city,isp`,
+    1500
+  );
+  if (!res.ok) throw new Error('ip-api status error');
+  const data: any = await res.json();
+  if (data && data.status === 'success') {
+    const country = (data.country || '').trim();
+    const regionCity = deduplicateRegionCity(data.regionName || '', data.city || '');
+    const isp = formatIsp(data.isp);
+    let loc = '';
+    if (country === '中国') {
+      loc = regionCity || country;
+    } else {
+      loc = [country, regionCity].filter(Boolean).join(' ');
+    }
+    if (isp) {
+      loc = loc ? `${loc} · ${isp}` : isp;
+    }
+    if (loc) return loc;
+  }
+  throw new Error('ip-api empty');
+}
+
+async function queryIpWhois(cleanIp: string): Promise<string> {
+  const res = await fetchWithTimeout(
+    `https://ipwho.is/${encodeURIComponent(cleanIp)}?lang=zh-CN`,
+    1500
+  );
+  if (!res.ok) throw new Error('ipwho status error');
+  const data: any = await res.json();
+  if (data && data.success) {
+    const country = (data.country || '').trim();
+    const regionCity = deduplicateRegionCity(data.region || '', data.city || '');
+    const isp = formatIsp(data.connection?.isp || data.connection?.org);
+    let loc = '';
+    if (country === '中国') {
+      loc = regionCity || country;
+    } else {
+      loc = [country, regionCity].filter(Boolean).join(' ');
+    }
+    if (isp) {
+      loc = loc ? `${loc} · ${isp}` : isp;
+    }
+    if (loc) return loc;
+  }
+  throw new Error('ipwho empty');
 }
 
 /**
- * Resolve IP geolocation with multi-provider fallback and in-memory caching
+ * Resolve IP geolocation in parallel with in-memory caching (including negative cache)
  */
 export async function resolveIpLocation(ip?: string, fallbackLocation?: string): Promise<string> {
   const cleanIp = normalizeIp(ip);
@@ -194,97 +269,25 @@ export async function resolveIpLocation(ip?: string, fallbackLocation?: string):
   }
 
   const lookupPromise = (async (): Promise<string> => {
-    // 1. Try PCOnline (Best accuracy for domestic Chinese province/city/ISP)
     try {
-      const res = await fetchWithTimeout(
-        `https://whois.pconline.com.cn/ipJson.jsp?ip=${encodeURIComponent(cleanIp)}&json=true`,
-        2200
-      );
-      if (res.ok) {
-        const buf = await res.arrayBuffer();
-        const text = new TextDecoder('gbk').decode(buf);
-        const data = JSON.parse(text);
-        if (data && data.pro && !data.err) {
-          const addr = String(data.addr || '').trim().replace(/\s+/g, ' · ');
-          const loc = addr || deduplicateRegionCity(data.pro, data.city);
-          if (loc) {
-            ipGeoCache.set(cleanIp, { location: loc, updatedAt: Date.now() });
-            return loc;
-          }
-        }
-      }
+      // Query providers concurrently and take the fastest valid response
+      const loc = await Promise.any([
+        queryPconline(cleanIp),
+        queryIpApi(cleanIp),
+        queryIpWhois(cleanIp),
+      ]);
+      ipGeoCache.set(cleanIp, { location: loc, updatedAt: Date.now() });
+      return loc;
     } catch {
-      // Fallback to next provider
+      const finalFallback =
+        fallbackLocation && fallbackLocation !== '解析中...' ? fallbackLocation : '未知归属地';
+      // Cache fallback for 10 minutes so failed IPs never cause repeated network requests
+      ipGeoCache.set(cleanIp, {
+        location: finalFallback,
+        updatedAt: Date.now() - CACHE_TTL_MS + 10 * 60 * 1000,
+      });
+      return finalFallback;
     }
-
-    // 2. Try ip-api.com (Great for both domestic and international IPs in Chinese)
-    try {
-      const res = await fetchWithTimeout(
-        `http://ip-api.com/json/${encodeURIComponent(cleanIp)}?lang=zh-CN&fields=status,country,regionName,city,isp`,
-        2500
-      );
-      if (res.ok) {
-        const data: any = await res.json();
-        if (data && data.status === 'success') {
-          const country = (data.country || '').trim();
-          const regionCity = deduplicateRegionCity(data.regionName || '', data.city || '');
-          const isp = formatIsp(data.isp);
-          let loc = '';
-          if (country === '中国') {
-            loc = regionCity || country;
-          } else {
-            loc = [country, regionCity].filter(Boolean).join(' ');
-          }
-          if (isp) {
-            loc = loc ? `${loc} · ${isp}` : isp;
-          }
-          if (loc) {
-            ipGeoCache.set(cleanIp, { location: loc, updatedAt: Date.now() });
-            return loc;
-          }
-        }
-      }
-    } catch {
-      // Fallback to next provider
-    }
-
-    // 3. Try ipwho.is (HTTPS international & domestic fallback)
-    try {
-      const res = await fetchWithTimeout(
-        `https://ipwho.is/${encodeURIComponent(cleanIp)}?lang=zh-CN`,
-        2500
-      );
-      if (res.ok) {
-        const data: any = await res.json();
-        if (data && data.success) {
-          const country = (data.country || '').trim();
-          const regionCity = deduplicateRegionCity(data.region || '', data.city || '');
-          const isp = formatIsp(data.connection?.isp || data.connection?.org);
-          let loc = '';
-          if (country === '中国') {
-            loc = regionCity || country;
-          } else {
-            loc = [country, regionCity].filter(Boolean).join(' ');
-          }
-          if (isp) {
-            loc = loc ? `${loc} · ${isp}` : isp;
-          }
-          if (loc) {
-            ipGeoCache.set(cleanIp, { location: loc, updatedAt: Date.now() });
-            return loc;
-          }
-        }
-      }
-    } catch {
-      // Ignore
-    }
-
-    if (fallbackLocation && fallbackLocation !== '解析中...') {
-      ipGeoCache.set(cleanIp, { location: fallbackLocation, updatedAt: Date.now() });
-      return fallbackLocation;
-    }
-
-    return '未知归属地';
   })();
 
   inFlightRequests.set(cleanIp, lookupPromise);
