@@ -164,12 +164,12 @@ adminRouter.post('/users/batch-approve', (req: Request, res: Response) => {
   });
 });
 
-// 1.3 Get currently online players (Admin only) - synchronous 0ms response using memory cache
-adminRouter.get('/online-players', (req: Request, res: Response) => {
+// 1.3 Get currently online players (Admin only)
+adminRouter.get('/online-players', async (req: Request, res: Response) => {
   const admin = requireAdmin(req, res);
   if (!admin) return;
 
-  const onlineList = getOnlinePlayersList();
+  const onlineList = await getOnlinePlayersListAsync();
   res.json({
     totalCount: onlineList.length,
     users: onlineList,
