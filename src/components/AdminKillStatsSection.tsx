@@ -25,12 +25,101 @@ type TimeScaleMode = 'daily' | 'weekly' | 'monthly';
 
 const KILL_STATS_CACHE_KEY = 'snowman_offline_kill_stats_v1';
 
+const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+interface FlipDigitSlotProps {
+  digit: number;
+  direction: 'up' | 'down';
+  staggerIndex: number;
+  duration: number;
+  isCardTile: boolean;
+  flipTrigger: number;
+}
+
 /**
- * Boom Beach (海岛奇兵) Style Rolling Number Counter:
- * - Rapidly ticks up from 0 (on mount / replayKey change) or from previous value (on live increment)
- * - Pulses with an elastic scale bounce & bright highlight glow while ticking
- * - Performs a crisp landing pop when reaching the target value
- * - Displays an optional floating "+N" burst badge when incrementing
+ * Single Digit Vertical Reel + 3D Calendar Page Flip Slot
+ * Mimics YouTube Live concurrent viewer counter & split-flap calendar page turn:
+ * - Only digits that change roll vertically along the [0..9] strip and perform a 3D calendar flip
+ * - Unchanged digits remain rock-solid still
+ */
+const FlipDigitSlot: React.FC<FlipDigitSlotProps> = ({
+  digit,
+  direction,
+  staggerIndex,
+  duration,
+  isCardTile,
+  flipTrigger,
+}) => {
+  const [flipping, setFlipping] = useState<boolean>(false);
+  const prevDigitRef = useRef<number>(digit);
+  const prevTriggerRef = useRef<number>(flipTrigger);
+
+  useEffect(() => {
+    const digitChanged = prevDigitRef.current !== digit;
+    const triggerChanged = prevTriggerRef.current !== flipTrigger;
+    prevDigitRef.current = digit;
+    prevTriggerRef.current = flipTrigger;
+
+    if (digitChanged || triggerChanged) {
+      setFlipping(true);
+      const timer = window.setTimeout(() => {
+        setFlipping(false);
+      }, duration + staggerIndex * 45 + 60);
+      return () => window.clearTimeout(timer);
+    }
+  }, [digit, flipTrigger, duration, staggerIndex]);
+
+  const delayMs = staggerIndex * 45;
+
+  return (
+    <span
+      className="relative inline-flex flex-col items-center justify-start overflow-hidden select-none align-baseline px-[0.02em]"
+      style={{
+        height: '1.2em',
+        lineHeight: '1.2em',
+        perspective: '320px',
+        WebkitMaskImage:
+          'linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)',
+        maskImage:
+          'linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)',
+      }}
+    >
+      {/* Vertical 0-9 Odometer / Flip Reel Strip */}
+      <span
+        className="inline-flex flex-col items-center will-change-transform"
+        style={{
+          transform: `translate3d(0, -${digit * 10}%, 0) rotateX(${
+            flipping ? (direction === 'up' ? '-22deg' : '22deg') : '0deg'
+          })`,
+          transitionProperty: 'transform, filter',
+          transitionDuration: `${duration}ms`,
+          transitionTimingFunction: 'cubic-bezier(0.2, 0.9, 0.25, 1)',
+          transitionDelay: `${delayMs}ms`,
+          transformOrigin: 'center center',
+        }}
+      >
+        {DIGITS.map((num) => (
+          <span
+            key={num}
+            className="flex items-center justify-center tabular-nums"
+            style={{
+              height: '1.2em',
+              lineHeight: '1.2em',
+            }}
+          >
+            {num}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+};
+
+/**
+ * YouTube Live Viewer Count / Calendar Page Flip Number Counter:
+ * - Splits numbers into individual digit slots
+ * - When a number changes, only the affected digit columns flip/roll vertically (upward on increase, downward on decrease)
+ * - On initial load or period switch (replayKey), all digits roll from 0 into their target positions with a crisp stagger
  */
 interface BoomCounterProps {
   value: number;
@@ -49,122 +138,120 @@ const BoomCounter: React.FC<BoomCounterProps> = ({
   decimals = 0,
   suffix = '',
   prefix = '',
-  duration = 820,
+  duration = 560,
   replayKey = 0,
   className = '',
-  glowColor = 'rgba(56, 189, 248, 0.75)',
   showDelta = false,
 }) => {
   const safeTarget = Number.isFinite(value) ? value : 0;
-  const [displayVal, setDisplayVal] = useState<number>(0);
-  const [phase, setPhase] = useState<'idle' | 'rolling' | 'landed'>('idle');
-  const [tickPulse, setTickPulse] = useState<boolean>(false);
+  const targetStr =
+    decimals > 0 ? safeTarget.toFixed(decimals) : String(Math.round(safeTarget));
+
+  // Build a zeroed string of the same structure for initial/replay roll-in
+  const zeroStr = useMemo(
+    () => targetStr.replace(/\d/g, '0'),
+    [targetStr]
+  );
+
+  const [renderedStr, setRenderedStr] = useState<string>(zeroStr);
+  const [direction, setDirection] = useState<'up' | 'down'>('up');
+  const [flipTrigger, setFlipTrigger] = useState<number>(0);
   const [deltaBadge, setDeltaBadge] = useState<number | null>(null);
 
-  const prevTargetRef = useRef<number>(0);
+  const prevValueRef = useRef<number>(0);
   const prevReplayRef = useRef<string | number>(replayKey);
-  const rafRef = useRef<number | null>(null);
-  const landTimeoutRef = useRef<number | null>(null);
+  const isFirstMountRef = useRef<boolean>(true);
 
   useEffect(() => {
     const isReplayChange = prevReplayRef.current !== replayKey;
+    const isInitial = isFirstMountRef.current;
     prevReplayRef.current = replayKey;
+    isFirstMountRef.current = false;
 
-    const startVal = isReplayChange ? 0 : prevTargetRef.current;
-    const diff = safeTarget - startVal;
-    prevTargetRef.current = safeTarget;
+    const prevVal = prevValueRef.current;
+    const diff = safeTarget - prevVal;
+    prevValueRef.current = safeTarget;
 
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    if (landTimeoutRef.current) window.clearTimeout(landTimeoutRef.current);
-
-    if (safeTarget === 0 && startVal === 0) {
-      setDisplayVal(0);
-      setPhase('idle');
-      return;
+    if (diff !== 0) {
+      setDirection(diff >= 0 ? 'up' : 'down');
+    } else {
+      setDirection('up');
     }
 
-    if (Math.abs(diff) < 0.001 && !isReplayChange) {
-      setDisplayVal(safeTarget);
-      setPhase('idle');
-      return;
-    }
-
-    if (showDelta && diff > 0) {
+    let badgeTimer: number | null = null;
+    if (!isInitial && !isReplayChange && showDelta && diff > 0) {
       setDeltaBadge(Number(diff.toFixed(decimals)));
+      badgeTimer = window.setTimeout(() => {
+        setDeltaBadge(null);
+      }, 900);
     }
 
-    setPhase('rolling');
-    const startTime = performance.now();
-    let lastTickStep = -1;
-
-    const step = (now: number) => {
-      const elapsed = now - startTime;
-      const t = Math.min(elapsed / duration, 1);
-      // Boom Beach style fast start + snappy deceleration curve (easeOutQuart)
-      const eased = 1 - Math.pow(1 - t, 4);
-      const current = startVal + diff * eased;
-
-      // Trigger rhythmic micro-pop on integer/step ticks like Boom Beach resource counters
-      const tickStep = Math.floor(t * 12);
-      if (tickStep !== lastTickStep) {
-        lastTickStep = tickStep;
-        setTickPulse((p) => !p);
+    if (isInitial || isReplayChange) {
+      // Start at 0s for one frame so all digits visibly roll/flip into place
+      setRenderedStr(targetStr.replace(/\d/g, '0'));
+      const raf = requestAnimationFrame(() => {
+        const raf2 = requestAnimationFrame(() => {
+          setRenderedStr(targetStr);
+          setFlipTrigger((c) => c + 1);
+        });
+        return () => cancelAnimationFrame(raf2);
+      });
+      return () => {
+        cancelAnimationFrame(raf);
+        if (badgeTimer) window.clearTimeout(badgeTimer);
+      };
+    } else {
+      // Live update: only changed digits roll/flip from their previous digit to the new digit
+      setRenderedStr(targetStr);
+      if (Math.abs(diff) > 0.0001) {
+        setFlipTrigger((c) => c + 1);
       }
+      return () => {
+        if (badgeTimer) window.clearTimeout(badgeTimer);
+      };
+    }
+  }, [safeTarget, targetStr, replayKey, decimals, showDelta]);
 
-      if (t < 1) {
-        setDisplayVal(current);
-        rafRef.current = requestAnimationFrame(step);
-      } else {
-        setDisplayVal(safeTarget);
-        setPhase('landed');
-        landTimeoutRef.current = window.setTimeout(() => {
-          setPhase('idle');
-          setDeltaBadge(null);
-        }, 420);
-      }
-    };
-
-    rafRef.current = requestAnimationFrame(step);
-
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (landTimeoutRef.current) window.clearTimeout(landTimeoutRef.current);
-    };
-  }, [safeTarget, replayKey, duration, decimals, showDelta]);
-
-  const formatted =
-    decimals > 0 ? displayVal.toFixed(decimals) : String(Math.round(displayVal));
-
-  // Dynamic scale & glow matching Boom Beach's energetic counter bounce
-  const scaleTransform =
-    phase === 'rolling'
-      ? tickPulse
-        ? 'scale(1.16) translateY(-1px)'
-        : 'scale(1.07)'
-      : phase === 'landed'
-      ? 'scale(1.22) translateY(-2px)'
-      : 'scale(1)';
+  const chars = renderedStr.split('');
+  let digitOrder = 0;
 
   return (
-    <span className={`relative inline-flex items-baseline ${className}`}>
-      <span
-        className="inline-block tabular-nums transition-transform duration-100 ease-out will-change-transform"
-        style={{
-          transform: scaleTransform,
-          textShadow:
-            phase !== 'idle' ? `0 0 14px ${glowColor}, 0 0 4px rgba(255,255,255,0.5)` : undefined,
-        }}
-      >
-        {prefix}
-        {formatted}
-        {suffix}
+    <span className={`relative inline-flex items-baseline tabular-nums ${className}`}>
+      {prefix && <span className="mr-[1px]">{prefix}</span>}
+
+      <span className="inline-flex items-baseline">
+        {chars.map((ch, idx) => {
+          const isDigit = ch >= '0' && ch <= '9';
+          if (!isDigit) {
+            return (
+              <span key={`sep_${idx}`} className="inline-block px-[0.5px]">
+                {ch}
+              </span>
+            );
+          }
+          const staggerIdx = digitOrder++;
+          // Key from the right (ones place = 0, tens place = 1, etc.) so existing places stay mounted when a new leading digit appears
+          const placeFromRight = chars.length - 1 - idx;
+          return (
+            <FlipDigitSlot
+              key={`place_${placeFromRight}`}
+              digit={parseInt(ch, 10)}
+              direction={direction}
+              staggerIndex={staggerIdx}
+              duration={duration}
+              isCardTile={showDelta}
+              flipTrigger={flipTrigger}
+            />
+          );
+        })}
       </span>
 
-      {/* Boom Beach style floating +N burst tag */}
+      {suffix && <span className="ml-[1px]">{suffix}</span>}
+
+      {/* Floating +N increment tag when live kill count increases */}
       {deltaBadge !== null && deltaBadge > 0 && (
         <span
-          className="pointer-events-none absolute -top-3.5 -right-5 px-1 py-0.2 rounded text-[10px] font-black font-mono text-amber-300 bg-amber-950/90 border border-amber-400/70 shadow-md animate-bounce"
-          style={{ textShadow: '0 0 6px rgba(251,191,36,0.8)' }}
+          className="pointer-events-none absolute -top-3.5 -right-5 px-1 py-0.2 rounded text-[10px] font-black font-mono text-emerald-300 bg-emerald-950/90 border border-emerald-400/70 shadow-md animate-bounce"
         >
           +{deltaBadge}
         </span>
