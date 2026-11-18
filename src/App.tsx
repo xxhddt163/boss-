@@ -33,6 +33,7 @@ import {
   Volume2,
   VolumeX,
   ExternalLink,
+  ArrowUpToLine,
 } from 'lucide-react';
 import {
   exportChannelsToCSV,
@@ -1450,6 +1451,28 @@ export default function App() {
       {/* Leave Reasons Admin Log & Summary Modal (Admin only) */}
       {leaveReasonsAdminModalOpen && currentUser?.role === 'admin' && (
         <LeaveReasonsAdminModal onClose={() => setLeaveReasonsAdminModalOpen(false)} />
+      )}
+
+      {/* Right-Side Floating Back-to-Top Button (Taobao / JD Elevator Style) */}
+      {currentUser && !(isMiniMode && !externalRoot) && (
+        <div className="fixed right-2.5 sm:right-5 bottom-6 sm:bottom-10 z-40 flex flex-col items-center">
+          <button
+            type="button"
+            onClick={() => {
+              sound.playClick();
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              document.documentElement.scrollTo({ top: 0, behavior: 'smooth' });
+              document.body.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            title="点击直接回到网页顶部"
+            className="group flex flex-col items-center justify-center w-12 sm:w-13 py-2.5 px-1.5 rounded-2xl bg-slate-900/90 hover:bg-gradient-to-b hover:from-cyan-500 hover:to-sky-500 border border-slate-700/90 hover:border-cyan-300 text-slate-200 hover:text-slate-950 shadow-[0_8px_28px_rgba(0,0,0,0.65)] hover:shadow-[0_8px_25px_rgba(34,211,238,0.4)] backdrop-blur-md transition-all duration-200 cursor-pointer active:scale-95 select-none"
+          >
+            <ArrowUpToLine className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400 group-hover:text-slate-950 transition-transform duration-200 group-hover:-translate-y-0.5" />
+            <span className="mt-1 text-[10px] sm:text-[11px] font-bold tracking-tight leading-none whitespace-nowrap">
+              回顶部
+            </span>
+          </button>
+        </div>
       )}
     </div>
   );

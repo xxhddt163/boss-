@@ -32,31 +32,44 @@ export const OnlinePlayersModal: React.FC<OnlinePlayersModalProps> = ({ onClose 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [lastUpdated, setLastUpdated] = useState<string>('');
 
-  const fetchOnlinePlayers = async () => {
+  const fetchOnlinePlayers = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setErrorMsg('');
       const res = await api.getOnlinePlayers();
       setPlayers(res.users);
       setTotalCount(res.totalCount);
       setLastUpdated(formatBeijing(new Date().toISOString()));
+
+      // If any player's IP geolocation is still resolving in background, silently refresh once after 1.2s
+      if (res.users.some((u) => u.ipLocation === '解析中...')) {
+        setTimeout(() => {
+          api
+            .getOnlinePlayers()
+            .then((nextRes) => {
+              setPlayers(nextRes.users);
+              setTotalCount(nextRes.totalCount);
+            })
+            .catch(() => {});
+        }, 1200);
+      }
     } catch (err: any) {
-      setErrorMsg(err.message || '获取在线玩家列表失败');
+      if (!silent) setErrorMsg(err.message || '获取在线玩家列表失败');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchOnlinePlayers();
+    fetchOnlinePlayers(false);
     // Auto refresh every 10 seconds while modal is open
-    const timer = setInterval(fetchOnlinePlayers, 10000);
+    const timer = setInterval(() => fetchOnlinePlayers(true), 10000);
     return () => clearInterval(timer);
   }, []);
 
   const handleManualRefresh = () => {
     sound.playClick();
-    fetchOnlinePlayers();
+    fetchOnlinePlayers(false);
   };
 
   const filteredPlayers = players.filter((p) => {
